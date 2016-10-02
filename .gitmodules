@@ -8,4 +8,4 @@
 [submodule "plugins/libftl/ftl-sdk"]
 	path = plugins/libftl/ftl-sdk
 	url = https://github.com/WatchBeam/ftl-sdk.git
-	branch = flow_control
+	branch = xsplit
