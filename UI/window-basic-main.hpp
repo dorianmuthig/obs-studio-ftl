@@ -454,10 +454,9 @@ public:
 	void UpdateTitleBar();
 	void UpdateSceneSelection(OBSSource source);
 
+	static std::string codecName;
 	void SystemTrayInit();
 	void SystemTray(bool firstStarted);
-
-	static std::string codecName;
 
 protected:
 	virtual void closeEvent(QCloseEvent *event) override;
