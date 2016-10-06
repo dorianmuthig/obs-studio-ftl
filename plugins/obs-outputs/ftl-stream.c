@@ -988,18 +988,24 @@ static bool init_connect(struct ftl_stream *stream)
 	key = obs_service_get_key(service);
 
 	struct obs_video_info ovi;
-	float frame_rate = 30;
+	int fps_num = 30, fps_den = 1;
 	if (obs_get_video_info(&ovi)) {
-		frame_rate = (float)ovi.fps_num / (float)ovi.fps_den;
+		fps_num = ovi.fps_num;
+		fps_den = ovi.fps_den;
 	}
+
+	char version_string[20];
+	sprintf_s(version_string, sizeof(version_string) / sizeof(version_string[0]), "%d.%d.%d", LIBOBS_API_MAJOR_VER, LIBOBS_API_MINOR_VER, LIBOBS_API_PATCH_VER);
 
 	stream->params.log_func = log_test;
 	stream->params.stream_key = key;
 	stream->params.video_codec = FTL_VIDEO_H264;
 	stream->params.audio_codec = FTL_AUDIO_OPUS;
 	stream->params.ingest_hostname = stream->path_ip.array;
-	stream->params.status_callback = NULL;
-	stream->params.video_frame_rate = frame_rate;
+	stream->params.vendor_name = "OBS Studio";
+	stream->params.vendor_version = version_string;
+	stream->params.fps_num = ovi.fps_num;
+	stream->params.fps_den = ovi.fps_den;
 	stream->params.video_kbps = (int)obs_data_get_int(video_settings, "bitrate");
 
 

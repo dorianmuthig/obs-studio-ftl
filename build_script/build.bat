@@ -17,14 +17,14 @@ if "%1" == "all" (
 SET build32=true
 SET build64=true
 SET package=true
-SET install_browser=true
+REM SET install_browser=true
 )
 if "%1" == "win64" (
 SET build64=true
 )
 if "%1" == "package" (
 SET package=true
-SET install_browser=true
+REM SET install_browser=true
 )
 if "%1" == "clean" (
    IF NOT EXIST ..\build GOTO NOBUILDDIR
