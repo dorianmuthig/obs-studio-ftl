@@ -35,7 +35,7 @@ if "%1" == "clean" (
 pushd .
 cd ..
 pushd .
-call git submodule update --init
+REM call git submodule update --init
 popd .
 IF EXIST build GOTO BUILD_DIR_EXISTS
 mkdir build

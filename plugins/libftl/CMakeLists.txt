@@ -14,9 +14,16 @@ set(FTLSDK_SOURCES
 if (WIN32)
   set(FTLSDK_PLATFORM_SOURCES 
 		ftl-sdk/libftl/win32/socket.c
-		ftl-sdk/libftl/gettimeofday/gettimeofday.c)
+		ftl-sdk/libftl/gettimeofday/gettimeofday.c
+		ftl-sdk/libftl/win32/threads.c
+		ftl-sdk/libftl/win32/threads.h)
+
+  include_directories(ftl-sdk/libftl/win32)
 else()
-  set(FTLSDK_PLATFORM_SOURCES ftl-sdk/libftl/posix/socket.c)
+  set(FTLSDK_PLATFORM_SOURCES ftl-sdk/libftl/posix/socket.c
+  							  ftl-sdk/libftl/posix/threads.c
+							  ftl-sdk/libftl/posix/threads.h)
+  include_directories(ftl-sdk/libftl/posix)
 endif()	
 
 set(FTLSDK_HEADERS
