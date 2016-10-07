@@ -9,12 +9,11 @@ set(FTLSDK_SOURCES
 	ftl-sdk/libftl/handshake.c
 	ftl-sdk/libftl/ftl_helpers.c
 	ftl-sdk/libftl/media.c
+	ftl-sdk/libftl/gettimeofday/gettimeofday.c
 	ftl-sdk/libftl/logging.c)
 	
 if (WIN32)
-  set(FTLSDK_PLATFORM_SOURCES 
-		ftl-sdk/libftl/win32/socket.c
-		ftl-sdk/libftl/gettimeofday/gettimeofday.c)
+  set(FTLSDK_PLATFORM_SOURCES ftl-sdk/libftl/win32/socket.c)
 else()
   set(FTLSDK_PLATFORM_SOURCES ftl-sdk/libftl/posix/socket.c)
 endif()	

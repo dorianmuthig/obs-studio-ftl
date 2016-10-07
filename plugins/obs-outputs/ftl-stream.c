@@ -32,6 +32,7 @@
 #include <Iphlpapi.h>
 #else
 #include <sys/ioctl.h>
+#define INFINITE 0xFFFFFFFF
 #endif
 
 #define do_log(level, format, ...) \
@@ -887,7 +888,7 @@ static void *status_thread(void *data)
 	while (!disconnected(stream)) {
 		if ((status_code = ftl_ingest_get_status(&stream->ftl_handle, &status, INFINITE)) < 0) {
 			blog(LOG_INFO, "ftl_ingest_get_status returned %d\n", status_code);
-			Sleep(500);
+			os_sleep_ms(500);
 			continue;
 		}
 
