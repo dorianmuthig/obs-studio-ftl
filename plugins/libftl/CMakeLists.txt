@@ -9,6 +9,7 @@ set(FTLSDK_SOURCES
 	ftl-sdk/libftl/handshake.c
 	ftl-sdk/libftl/ftl_helpers.c
 	ftl-sdk/libftl/media.c
+	ftl-sdk/libftl/gettimeofday/gettimeofday.c
 	ftl-sdk/libftl/logging.c)
 	
 if (WIN32)
