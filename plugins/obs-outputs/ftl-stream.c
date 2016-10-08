@@ -509,8 +509,6 @@ static bool send_video_header(struct ftl_stream *stream)
 static inline bool send_headers(struct ftl_stream *stream)
 {
 	stream->sent_headers = true;
-	size_t i = 0;
-	bool next = true;
 
 	if (!send_video_header(stream))
 		return false;
@@ -531,8 +529,6 @@ static inline bool reset_semaphore(struct ftl_stream *stream)
 static int init_send(struct ftl_stream *stream)
 {
 	int ret;
-	size_t idx = 0;
-	bool next = true;
 	
 	reset_semaphore(stream);
 
@@ -544,15 +540,7 @@ static int init_send(struct ftl_stream *stream)
 	}
 
 	os_atomic_set_bool(&stream->active, true);
-	/*
-	while (next) {
-		if (!send_meta_data(stream, idx++, &next)) {
-			warn("Disconnected while attempting to connect to "
-			     "server.");
-			return OBS_OUTPUT_DISCONNECTED;
-		}
-	}
-	*/
+
 	obs_output_begin_data_capture(stream->output, 0);
 
 	return OBS_OUTPUT_SUCCESS;
@@ -820,6 +808,7 @@ static void ftl_stream_data(void *data, struct encoder_packet *packet)
 
 static void ftl_stream_defaults(obs_data_t *defaults)
 {
+	UNUSED_PARAMETER(defaults);
 	/*
 	obs_data_set_default_int(defaults, OPT_DROP_THRESHOLD, 600);
 	obs_data_set_default_int(defaults, OPT_MAX_SHUTDOWN_TIME_SEC, 5);
@@ -995,18 +984,18 @@ static bool init_connect(struct ftl_stream *stream)
 		fps_den = ovi.fps_den;
 	}
 
-	char version_string[20];
-	sprintf_s(version_string, sizeof(version_string) / sizeof(version_string[0]), "%d.%d.%d", LIBOBS_API_MAJOR_VER, LIBOBS_API_MINOR_VER, LIBOBS_API_PATCH_VER);
+	struct dstr version;
+	dstr_printf(&version, "%d.%d.%d", LIBOBS_API_MAJOR_VER, LIBOBS_API_MINOR_VER, LIBOBS_API_PATCH_VER);
 
 	stream->params.log_func = log_test;
-	stream->params.stream_key = key;
+	stream->params.stream_key = (char*)key;
 	stream->params.video_codec = FTL_VIDEO_H264;
 	stream->params.audio_codec = FTL_AUDIO_OPUS;
 	stream->params.ingest_hostname = stream->path_ip.array;
 	stream->params.vendor_name = "OBS Studio";
-	stream->params.vendor_version = version_string;
-	stream->params.fps_num = ovi.fps_num;
-	stream->params.fps_den = ovi.fps_den;
+	stream->params.vendor_version = version.array;
+	stream->params.fps_num = fps_num;
+	stream->params.fps_den = fps_den;
 	stream->params.video_kbps = (int)obs_data_get_int(video_settings, "bitrate");
 
 
@@ -1018,6 +1007,7 @@ static bool init_connect(struct ftl_stream *stream)
 	dstr_copy(&stream->username, obs_service_get_username(service));
 	dstr_copy(&stream->password, obs_service_get_password(service));
 	dstr_depad(&stream->path);
+	dstr_free(&version);
 	/*	
 	stream->drop_threshold_usec =
 		(int64_t)obs_data_get_int(settings, OPT_DROP_THRESHOLD) * 1000;
@@ -1033,6 +1023,8 @@ static bool init_connect(struct ftl_stream *stream)
 
 // Returns 0 on success
 int map_ftl_error_to_obs_error(int status) {
+
+	UNUSED_PARAMETER(status);
 	/* Map FTL errors to OBS errors */
 #if 0
 	int ftl_to_obs_error_code = 0;
@@ -1070,6 +1062,7 @@ int map_ftl_error_to_obs_error(int status) {
 
 	return ftl_to_obs_error_code;
 #endif
+	return 0;
 }
 struct obs_output_info ftl_output_info = {
 	.id                 = "ftl_output",
