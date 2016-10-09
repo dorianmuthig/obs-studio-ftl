@@ -1,6 +1,6 @@
 REM @Echo Off
 SET build_config=Release
-SET obs_version=0.16.2-ftl.11
+SET obs_version=0.16.2-ftl.12
 SET coredeps=C:\beam\tachyon_deps
 SET QTDIR64=C:\Qt\5.6\msvc2015_64
 SET QTDIR32=C:\Qt\5.6\msvc2015
@@ -17,14 +17,14 @@ if "%1" == "all" (
 SET build32=true
 SET build64=true
 SET package=true
-REM SET install_browser=true
+SET install_browser=true
 )
 if "%1" == "win64" (
 SET build64=true
 )
 if "%1" == "package" (
 SET package=true
-REM SET install_browser=true
+SET install_browser=true
 )
 if "%1" == "clean" (
    IF NOT EXIST ..\build GOTO NOBUILDDIR
