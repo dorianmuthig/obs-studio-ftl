@@ -985,6 +985,7 @@ static bool init_connect(struct ftl_stream *stream)
 	}
 
 	struct dstr version;
+	dstr_init(&version);
 	dstr_printf(&version, "%d.%d.%d", LIBOBS_API_MAJOR_VER, LIBOBS_API_MINOR_VER, LIBOBS_API_PATCH_VER);
 
 	stream->params.log_func = log_test;
