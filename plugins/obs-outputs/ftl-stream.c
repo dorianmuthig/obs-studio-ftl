@@ -998,6 +998,18 @@ static bool init_connect(struct ftl_stream *stream)
 		fps_den = ovi.fps_den;
 	}
 
+	int target_bitrate = (int)obs_data_get_int(video_settings, "bitrate");
+	int peak_bitrate = (int)((float)target_bitrate * 1.1);
+
+	if (obs_data_get_bool(video_settings, "use_bufsize")) {
+		peak_bitrate = obs_data_get_int(video_settings, "buffer_size");
+	}
+
+	//minimum overshoot tolerance of 10%
+	if (peak_bitrate < target_bitrate) {
+		peak_bitrate = target_bitrate;
+	}
+
 	struct dstr version;
 	dstr_init(&version);
 	dstr_printf(&version, "%d.%d.%d", LIBOBS_API_MAJOR_VER, LIBOBS_API_MINOR_VER, LIBOBS_API_PATCH_VER);
@@ -1010,8 +1022,7 @@ static bool init_connect(struct ftl_stream *stream)
 	stream->params.vendor_version = version.array;
 	stream->params.fps_num = fps_num;
 	stream->params.fps_den = fps_den;
-	stream->params.video_kbps = (int)obs_data_get_int(video_settings, "bitrate");
-
+	stream->params.peak_kbps = peak_bitrate;
 
 	if ((status_code = ftl_ingest_create(&stream->ftl_handle, &stream->params)) != FTL_SUCCESS) {
 		printf("Failed to create ingest handle %d\n", status_code);
