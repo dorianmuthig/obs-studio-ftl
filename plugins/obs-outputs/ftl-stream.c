@@ -110,12 +110,6 @@ static bool init_connect(struct ftl_stream *stream);
 static void *connect_thread(void *data);
 static void *status_thread(void *data);
 
-void log_test(ftl_log_severity_t log_level, const char * message) {
-	//fprintf(stderr, "libftl message: %s\n", message);
-	blog(log_level, "[ftl stream: '%s']", message);
-	return;
-}
-
 static const char *ftl_stream_getname(void *unused)
 {
 	UNUSED_PARAMETER(unused);
@@ -877,8 +871,7 @@ static void *status_thread(void *data)
 	while (!disconnected(stream)) {
 		if ((status_code = ftl_ingest_get_status(&stream->ftl_handle, &status, INFINITE)) < 0) {
 			blog(LOG_INFO, "ftl_ingest_get_status returned %d\n", status_code);
-			os_sleep_ms(500);
-			continue;
+			break;
 		}
 
 		if (status.type == FTL_STATUS_EVENT && status.msg.event.type == FTL_STATUS_EVENT_TYPE_DISCONNECTED) {
@@ -897,6 +890,27 @@ static void *status_thread(void *data)
 			}
 			blog(LOG_WARNING, "Done\n");
 
+		}
+		else if(status.type == FTL_STATUS_LOG)
+		{
+			blog(LOG_INFO, "[%d] %s\n", status.msg.log.log_level, status.msg.log.string);
+		}
+		else if (status.type == FTL_STATUS_VIDEO_PACKETS) {
+			ftl_packet_stats_msg_t *p = &status.msg.pkt_stats;
+
+			blog(LOG_INFO, "Avg packet send per second %3.1f, nack requests %d, avg transmit delay %d (min: %d, max: %d)\n",
+				(float)p->sent * 1000.f / p->period,
+				p->nack_reqs, p->avg_xmit_delay, p->min_xmit_delay, p->max_xmit_delay);
+		}
+		else if (status.type == FTL_STATUS_VIDEO) {
+			ftl_video_frame_stats_msg_t *v = &status.msg.video_stats;
+
+			blog(LOG_INFO, "Queue an average of %3.2f fps (%3.1f kbps), sent an average of %3.2f fps (%3.1f kbps), queue fullness %d, max frame size %d\n",
+				(float)v->frames_queued * 1000.f / v->period,
+				(float)v->bytes_queued / v->period * 8,
+				(float)v->frames_sent * 1000.f / v->period,
+				(float)v->bytes_sent / v->period * 8,
+				v->queue_fullness, v->max_frame_size);
 		}
 		else {
 			blog(LOG_INFO, "Status:  Got Status message of type %d\n", status.type);
@@ -984,11 +998,22 @@ static bool init_connect(struct ftl_stream *stream)
 		fps_den = ovi.fps_den;
 	}
 
+	int target_bitrate = (int)obs_data_get_int(video_settings, "bitrate");
+	int peak_bitrate = (int)((float)target_bitrate * 1.1);
+
+	if (obs_data_get_bool(video_settings, "use_bufsize")) {
+		peak_bitrate = obs_data_get_int(video_settings, "buffer_size");
+	}
+
+	//minimum overshoot tolerance of 10%
+	if (peak_bitrate < target_bitrate) {
+		peak_bitrate = target_bitrate;
+	}
+
 	struct dstr version;
 	dstr_init(&version);
 	dstr_printf(&version, "%d.%d.%d", LIBOBS_API_MAJOR_VER, LIBOBS_API_MINOR_VER, LIBOBS_API_PATCH_VER);
 
-	stream->params.log_func = log_test;
 	stream->params.stream_key = (char*)key;
 	stream->params.video_codec = FTL_VIDEO_H264;
 	stream->params.audio_codec = FTL_AUDIO_OPUS;
@@ -997,8 +1022,7 @@ static bool init_connect(struct ftl_stream *stream)
 	stream->params.vendor_version = version.array;
 	stream->params.fps_num = fps_num;
 	stream->params.fps_den = fps_den;
-	stream->params.video_kbps = (int)obs_data_get_int(video_settings, "bitrate");
-
+	stream->params.peak_kbps = peak_bitrate;
 
 	if ((status_code = ftl_ingest_create(&stream->ftl_handle, &stream->params)) != FTL_SUCCESS) {
 		printf("Failed to create ingest handle %d\n", status_code);
