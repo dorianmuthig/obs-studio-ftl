@@ -229,6 +229,6 @@
         "max video bitrate": 4000,
         "max audio bitrate": 160,
         "audio sample rate": 48000,
-        "x264opts": "ipratio=0.3"
+        "x264opts": "ipratio=0.3 ratetol=10 scenecut=0"
     }
 }
