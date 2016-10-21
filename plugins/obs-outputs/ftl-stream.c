@@ -360,11 +360,11 @@ static int send_packet(struct ftl_stream *stream,
 		for (i = 0; i < stream->coded_pic_buffer.total; i++) {
 			int send_marker_bit = (i + 1) == stream->coded_pic_buffer.total;
 			nalu_t *nalu = &stream->coded_pic_buffer.nalus[i];
-			bytes_sent += ftl_ingest_send_media(&stream->ftl_handle, FTL_VIDEO_DATA, nalu->data, nalu->len, nalu->send_marker_bit);
+			bytes_sent += ftl_ingest_send_media_dts(&stream->ftl_handle, FTL_VIDEO_DATA, packet->dts_usec, nalu->data, nalu->len, nalu->send_marker_bit);
 		}
 	}
 	else if (packet->type == OBS_ENCODER_AUDIO) {
-		bytes_sent += ftl_ingest_send_media(&stream->ftl_handle, FTL_AUDIO_DATA, packet->data, packet->size, 0);
+		bytes_sent += ftl_ingest_send_media_dts(&stream->ftl_handle, FTL_AUDIO_DATA, packet->dts_usec, packet->data, packet->size, 0);
 	}
 	else {
 		warn("Got packet type %d\n", packet->type);
@@ -376,7 +376,7 @@ static int send_packet(struct ftl_stream *stream,
 	return ret;
 }
 
-static inline bool send_headers(struct ftl_stream *stream);
+static inline bool send_headers(struct ftl_stream *stream, int64_t dts_usec);
 
 static void *send_thread(void *data)
 {
@@ -404,7 +404,7 @@ static void *send_thread(void *data)
 
 		/*sends sps/pps on every key frame as this is typically required for webrtc*/
 		if (packet.keyframe) {
-			if (!send_headers(stream)) {
+			if (!send_headers(stream, packet.dts_usec)) {
 				os_atomic_set_bool(&stream->disconnected, true);
 				break;
 			}
@@ -482,7 +482,7 @@ static bool send_audio_header(struct ftl_stream *stream, size_t idx,
 }
 */
 
-static bool send_video_header(struct ftl_stream *stream)
+static bool send_video_header(struct ftl_stream *stream, int64_t dts_usec)
 {
 	obs_output_t  *context  = stream->output;
 	obs_encoder_t *vencoder = obs_output_get_video_encoder(context);
@@ -492,7 +492,8 @@ static bool send_video_header(struct ftl_stream *stream)
 	struct encoder_packet packet   = {
 		.type         = OBS_ENCODER_VIDEO,
 		.timebase_den = 1,
-		.keyframe     = true
+		.keyframe     = true,
+		.dts_usec = dts_usec
 	};
 
 	obs_encoder_get_extra_data(vencoder, &header, &size);
@@ -500,11 +501,11 @@ static bool send_video_header(struct ftl_stream *stream)
 	return send_packet(stream, &packet, true, 0) >= 0;
 }
 
-static inline bool send_headers(struct ftl_stream *stream)
+static inline bool send_headers(struct ftl_stream *stream, int64_t dts_usec)
 {
 	stream->sent_headers = true;
 
-	if (!send_video_header(stream))
+	if (!send_video_header(stream, dts_usec))
 		return false;
 
 	return true;
