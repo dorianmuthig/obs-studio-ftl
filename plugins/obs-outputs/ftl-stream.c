@@ -869,8 +869,12 @@ static void *status_thread(void *data)
 	ftl_status_t status_code;
 
 	while (!disconnected(stream)) {
-		if ((status_code = ftl_ingest_get_status(&stream->ftl_handle, &status, INFINITE)) < 0) {
-			blog(LOG_INFO, "ftl_ingest_get_status returned %d\n", status_code);
+		status_code = ftl_ingest_get_status(&stream->ftl_handle, &status, 1000);
+
+		if (status_code == FTL_STATUS_TIMEOUT) {
+			continue;
+		}
+		else if (status_code == FTL_NOT_INITIALIZED) {
 			break;
 		}
 
@@ -917,7 +921,7 @@ static void *status_thread(void *data)
 		}
 	}
 
-	blog(LOG_INFO, "status_thread:  Exited");
+	blog(LOG_INFO, "status_thread:  Exited\n");
 	pthread_detach(stream->status_thread);
 	return NULL;
 }
@@ -1024,8 +1028,10 @@ static bool init_connect(struct ftl_stream *stream)
 	stream->params.fps_den = fps_den;
 	stream->params.peak_kbps = peak_bitrate;
 
+	blog(LOG_ERROR, "H.264 opts %s\n", obs_data_get_string(video_settings, "x264opts")); 
+
 	if ((status_code = ftl_ingest_create(&stream->ftl_handle, &stream->params)) != FTL_SUCCESS) {
-		printf("Failed to create ingest handle %d\n", status_code);
+		blog(LOG_ERROR, "Failed to create ingest handle %d\n", status_code);
 		return -1;
 	}
 
