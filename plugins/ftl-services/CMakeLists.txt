@@ -10,7 +10,7 @@ set(ftl-services_HEADERS
 	ftl-format-ver.h)
 
 set(FTL_SERVICES_URL
-	"https://github.com/WatchBeam/abandoned-ftl-studio"
+	"https://raw.githubusercontent.com/WatchBeam/obs-studio-ftl/ftl/plugins/ftl-services/data/"
 	CACHE STRING "Default services package URL")
 
 configure_file(

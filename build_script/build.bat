@@ -17,7 +17,7 @@ if "%1" == "all" (
 SET build32=true
 SET build64=true
 SET package=true
-REM SET install_browser=true
+SET install_browser=true
 )
 if "%1" == "win64" (
 SET build64=true

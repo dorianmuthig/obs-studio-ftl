@@ -9,14 +9,22 @@ set(FTLSDK_SOURCES
 	ftl-sdk/libftl/handshake.c
 	ftl-sdk/libftl/ftl_helpers.c
 	ftl-sdk/libftl/media.c
+	ftl-sdk/libftl/gettimeofday/gettimeofday.c
 	ftl-sdk/libftl/logging.c)
 	
 if (WIN32)
   set(FTLSDK_PLATFORM_SOURCES 
 		ftl-sdk/libftl/win32/socket.c
-		ftl-sdk/libftl/win32/gettimeofday.c)
+		ftl-sdk/libftl/gettimeofday/gettimeofday.c
+		ftl-sdk/libftl/win32/threads.c
+		ftl-sdk/libftl/win32/threads.h)
+
+  include_directories(ftl-sdk/libftl/win32)
 else()
-  set(FTLSDK_PLATFORM_SOURCES ftl-sdk/libftl/posix/socket.c)
+  set(FTLSDK_PLATFORM_SOURCES ftl-sdk/libftl/posix/socket.c
+  							  ftl-sdk/libftl/posix/threads.c
+							  ftl-sdk/libftl/posix/threads.h)
+  include_directories(ftl-sdk/libftl/posix)
 endif()	
 
 set(FTLSDK_HEADERS
@@ -27,7 +35,7 @@ set(FTLSDK_HEADERS
 	
 if (WIN32)
   set(FTLSDK_PLATFORM_HEADERS 
-		ftl-sdk/libftl/win32/gettimeofday.h)
+		ftl-sdk/libftl/gettimeofday/gettimeofday.h)
 endif()		
 
 add_library(libftl SHARED 
@@ -36,7 +44,7 @@ add_library(libftl SHARED
 	${FTLSDK_PLATFORM_SOURCES}
 	${FTLSDK_PLATFORM_HEADERS})
 	
-set_target_properties(libftl PROPERTIES VERSION "0.2.3")
+set_target_properties(libftl PROPERTIES VERSION "0.5.0")
 set_target_properties(libftl PROPERTIES SOVERSION 0)	
 
 if(WIN32)
