@@ -379,6 +379,26 @@ static int send_packet(struct ftl_stream *stream,
 	return ret;
 }
 
+static void set_peak_bitrate(struct ftl_stream *stream) {
+	int speedtest_kbps = 10000;
+	int speedtest_duration = 1000;
+
+	printf("Running speed test: sending %d kbps for %d ms", speedtest_kbps, speedtest_duration);
+	float packetloss_rate = 0;
+	packetloss_rate = ftl_ingest_speed_test(&stream->ftl_handle, speedtest_kbps, speedtest_duration);
+
+	if(packetloss_rate <= 1){
+		stream->params.peak_kbps = speedtest_kbps;
+	}
+	else{
+		stream->params.peak_kbps = (float)speedtest_kbps * (100.f - packetloss_rate) / 110;
+	}
+
+	printf("Running speed test complete: packet loss rate was %3.2f, setting peak bitrate to %d\n", packetloss_rate, stream->params.peak_kbps);
+
+	ftl_ingest_update_params(&stream->ftl_handle, &stream->params);
+}
+
 static inline bool send_headers(struct ftl_stream *stream, int64_t dts_usec);
 
 static void *send_thread(void *data)
@@ -387,6 +407,8 @@ static void *send_thread(void *data)
 	ftl_status_t status_code;
 
 	os_set_thread_name("ftl-stream: send_thread");
+
+	set_peak_bitrate(stream);
 
 	while (os_sem_wait(stream->send_sem) == 0) {
 		struct encoder_packet packet;
@@ -994,9 +1016,7 @@ static bool init_connect(struct ftl_stream *stream)
 	settings = obs_output_get_settings(stream->output);
 	obs_encoder_t *video_encoder = obs_output_get_video_encoder(stream->output);
 	obs_data_t *video_settings = obs_encoder_get_settings(video_encoder);
-
 	dstr_copy(&stream->path,     obs_service_get_url(service));
-
 	key = obs_service_get_key(service);
 
 	struct obs_video_info ovi;
@@ -1044,12 +1064,12 @@ static bool init_connect(struct ftl_stream *stream)
 	dstr_copy(&stream->password, obs_service_get_password(service));
 	dstr_depad(&stream->path);
 	dstr_free(&version);
-	/*	
+	
 	stream->drop_threshold_usec =
 		(int64_t)obs_data_get_int(settings, OPT_DROP_THRESHOLD) * 1000;
 	stream->max_shutdown_time_sec =
 		(int)obs_data_get_int(settings, OPT_MAX_SHUTDOWN_TIME_SEC);
-*/
+
 	bind_ip = obs_data_get_string(settings, OPT_BIND_IP);
 	dstr_copy(&stream->bind_ip, bind_ip);
 
