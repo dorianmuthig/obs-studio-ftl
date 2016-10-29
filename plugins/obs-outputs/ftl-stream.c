@@ -383,7 +383,7 @@ static void set_peak_bitrate(struct ftl_stream *stream) {
 	int speedtest_kbps = 10000;
 	int speedtest_duration = 1000;
 
-	printf("Running speed test: sending %d kbps for %d ms", speedtest_kbps, speedtest_duration);
+	warn("Running speed test: sending %d kbps for %d ms", speedtest_kbps, speedtest_duration);
 	float packetloss_rate = 0;
 	packetloss_rate = ftl_ingest_speed_test(&stream->ftl_handle, speedtest_kbps, speedtest_duration);
 
@@ -394,7 +394,7 @@ static void set_peak_bitrate(struct ftl_stream *stream) {
 		stream->params.peak_kbps = (float)speedtest_kbps * (100.f - packetloss_rate) / 110;
 	}
 
-	printf("Running speed test complete: packet loss rate was %3.2f, setting peak bitrate to %d\n", packetloss_rate, stream->params.peak_kbps);
+	warn("Running speed test complete: packet loss rate was %3.2f, setting peak bitrate to %d\n", packetloss_rate, stream->params.peak_kbps);
 
 	ftl_ingest_update_params(&stream->ftl_handle, &stream->params);
 }
@@ -407,8 +407,6 @@ static void *send_thread(void *data)
 	ftl_status_t status_code;
 
 	os_set_thread_name("ftl-stream: send_thread");
-
-	set_peak_bitrate(stream);
 
 	while (os_sem_wait(stream->send_sem) == 0) {
 		struct encoder_packet packet;
@@ -672,6 +670,8 @@ static int try_connect(struct ftl_stream *stream)
 	}
 
 	info("Connection to %s successful", stream->path.array);
+
+	set_peak_bitrate(stream);
 
 	pthread_create(&stream->status_thread, NULL, status_thread, stream);
 
@@ -1049,9 +1049,9 @@ static bool init_connect(struct ftl_stream *stream)
 	stream->params.ingest_hostname = stream->path.array;
 	stream->params.vendor_name = "OBS Studio";
 	stream->params.vendor_version = version.array;
-	stream->params.fps_num = fps_num;
-	stream->params.fps_den = fps_den;
-	stream->params.peak_kbps = peak_bitrate;
+	stream->params.fps_num = 0; //not required when using ftl_ingest_send_media_dts
+	stream->params.fps_den = 0; // not required when using ftl_ingest_send_media_dts
+	stream->params.peak_kbps = 0;
 
 	blog(LOG_ERROR, "H.264 opts %s\n", obs_data_get_string(video_settings, "x264opts")); 
 
