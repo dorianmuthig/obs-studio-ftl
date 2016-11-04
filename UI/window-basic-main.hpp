@@ -95,6 +95,13 @@ class OBSBasic : public OBSMainWindow {
 		Right
 	};
 
+	enum DropType {
+		DropType_RawText,
+		DropType_Text,
+		DropType_Image,
+		DropType_Media
+	};
+
 private:
 	obs_frontend_callbacks *api = nullptr;
 
@@ -144,13 +151,12 @@ private:
 
 	QPointer<QMenu> startStreamMenu;
 
-	QSystemTrayIcon *trayIcon;
-	QMenu         *trayMenu;
-	QAction       *sysTrayStream;
-	QAction       *sysTrayRecord;
-	QAction       *showHide;
-	QAction       *showPreview;
-	QAction       *exit;
+	QPointer<QSystemTrayIcon> trayIcon;
+	QPointer<QAction>         sysTrayStream;
+	QPointer<QAction>         sysTrayRecord;
+	QPointer<QAction>         showHide;
+	QPointer<QAction>         exit;
+	QPointer<QMenu>           trayMenu;
 	bool          disableHiding = false;
 
 	void          DrawBackdrop(float cx, float cy);
@@ -299,7 +305,7 @@ private:
 	inline void OnActivate();
 	inline void OnDeactivate();
 
-	void AddDropSource(const char *file, bool image);
+	void AddDropSource(const char *file, DropType image);
 	void dragEnterEvent(QDragEnterEvent *event) override;
 	void dragLeaveEvent(QDragLeaveEvent *event) override;
 	void dragMoveEvent(QDragMoveEvent *event) override;

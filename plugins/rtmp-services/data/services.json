@@ -326,10 +326,14 @@
                 {
                     "name": "EU",
                     "url": "rtmp://eumedia1.livecoding.tv/livecodingtv"
+                },
+                {
+                    "name": "Asia Pacific",
+                    "url": "rtmp://apmedia1.livecoding.tv/livecodingtv"
                 }
             ],
             "recommended": {
-                "max video bitrate": 1300
+                "max video bitrate": 2300
             }
         },
         {
@@ -802,6 +806,21 @@
                 "profile": "baseline",
                 "max video bitrate": 3000,
                 "max audio bitrate": 128
+            }
+        },
+        {
+            "name": "Picarto",
+            "servers": [
+                {
+                    "name": "USA/Canada",
+                    "url": "rtmp://live.us.picarto.tv/golive"
+                }
+            ],
+            "recommended": {
+                "keyint": 2,
+                "profile": "main",
+                "max video bitrate": 2000,
+                "max audio bitrate": 160
             }
         }
     ]
