@@ -84,7 +84,7 @@ struct ftl_stream {
 	os_event_t       *stop_event;
 	uint64_t         stop_ts;
 
-	struct dstr      path, path_ip;
+	struct dstr      path;
 	uint32_t         channel_id;
 	struct dstr      username, password;
 	struct dstr      encoder_name;
@@ -201,7 +201,6 @@ static void ftl_stream_destroy(void *data)
 	if (stream) {
 		free_packets(stream);
 		dstr_free(&stream->path);
-		dstr_free(&stream->path_ip);
 		dstr_free(&stream->username);
 		dstr_free(&stream->password);
 		dstr_free(&stream->encoder_name);
@@ -380,6 +379,26 @@ static int send_packet(struct ftl_stream *stream,
 	return ret;
 }
 
+static void set_peak_bitrate(struct ftl_stream *stream) {
+	int speedtest_kbps = 10000;
+	int speedtest_duration = 1000;
+
+	warn("Running speed test: sending %d kbps for %d ms", speedtest_kbps, speedtest_duration);
+	float packetloss_rate = 0;
+	packetloss_rate = ftl_ingest_speed_test(&stream->ftl_handle, speedtest_kbps, speedtest_duration);
+
+	if(packetloss_rate <= 1){
+		stream->params.peak_kbps = speedtest_kbps;
+	}
+	else{
+		stream->params.peak_kbps = (float)speedtest_kbps * (100.f - packetloss_rate) / 110;
+	}
+
+	warn("Running speed test complete: packet loss rate was %3.2f, setting peak bitrate to %d\n", packetloss_rate, stream->params.peak_kbps);
+
+	ftl_ingest_update_params(&stream->ftl_handle, &stream->params);
+}
+
 static inline bool send_headers(struct ftl_stream *stream, int64_t dts_usec);
 
 static void *send_thread(void *data)
@@ -421,7 +440,7 @@ static void *send_thread(void *data)
 	}
 
 	if (disconnected(stream)) {
-		info("Disconnected from %s (%s)", stream->path.array, stream->path_ip.array);
+		info("Disconnected from %s", stream->path.array);
 	} else {
 		info("User stopped the stream");
 	}
@@ -635,12 +654,12 @@ static int try_connect(struct ftl_stream *stream)
 {
 	ftl_status_t status_code;
 	
-	if (dstr_is_empty(&stream->path_ip)) {
+	if (dstr_is_empty(&stream->path)) {
 		warn("URL is empty");
 		return OBS_OUTPUT_BAD_PATH;
 	}
 
-	info("Connecting to FTL Ingest URL %s (%s)...", stream->path.array, stream->path_ip.array);
+	info("Connecting to FTL Ingest URL %s...", stream->path.array);
 
 	stream->width = (int)obs_output_get_width(stream->output);
 	stream->height = (int)obs_output_get_height(stream->output);
@@ -650,7 +669,9 @@ static int try_connect(struct ftl_stream *stream)
 		return OBS_OUTPUT_ERROR;
 	}
 
-	info("Connection to %s (%s) successful", stream->path.array, stream->path_ip.array);
+	info("Connection to %s successful", stream->path.array);
+
+	set_peak_bitrate(stream);
 
 	pthread_create(&stream->status_thread, NULL, status_thread, stream);
 
@@ -950,7 +971,7 @@ static void *connect_thread(void *data)
 
 	if (ret != OBS_OUTPUT_SUCCESS) {
 		obs_output_signal_stop(stream->output, ret);
-		info("Connection to %s (%s) failed: %d", stream->path.array, stream->path_ip.array, ret);
+		info("Connection to %s (%s) failed: %d", stream->path.array, ret);
 	}
 
 	if (!stopping(stream))
@@ -995,10 +1016,7 @@ static bool init_connect(struct ftl_stream *stream)
 	settings = obs_output_get_settings(stream->output);
 	obs_encoder_t *video_encoder = obs_output_get_video_encoder(stream->output);
 	obs_data_t *video_settings = obs_encoder_get_settings(video_encoder);
-
 	dstr_copy(&stream->path,     obs_service_get_url(service));
-	lookup_ingest_ip(stream->path.array, tmp_ip);
-	dstr_copy(&stream->path_ip, tmp_ip);
 	key = obs_service_get_key(service);
 
 	struct obs_video_info ovi;
@@ -1028,12 +1046,12 @@ static bool init_connect(struct ftl_stream *stream)
 	stream->params.stream_key = (char*)key;
 	stream->params.video_codec = FTL_VIDEO_H264;
 	stream->params.audio_codec = FTL_AUDIO_OPUS;
-	stream->params.ingest_hostname = stream->path_ip.array;
+	stream->params.ingest_hostname = stream->path.array;
 	stream->params.vendor_name = "OBS Studio";
 	stream->params.vendor_version = version.array;
-	stream->params.fps_num = fps_num;
-	stream->params.fps_den = fps_den;
-	stream->params.peak_kbps = peak_bitrate;
+	stream->params.fps_num = 0; //not required when using ftl_ingest_send_media_dts
+	stream->params.fps_den = 0; // not required when using ftl_ingest_send_media_dts
+	stream->params.peak_kbps = 0;
 
 	blog(LOG_ERROR, "H.264 opts %s\n", obs_data_get_string(video_settings, "x264opts")); 
 
@@ -1046,12 +1064,12 @@ static bool init_connect(struct ftl_stream *stream)
 	dstr_copy(&stream->password, obs_service_get_password(service));
 	dstr_depad(&stream->path);
 	dstr_free(&version);
-	/*	
+	
 	stream->drop_threshold_usec =
 		(int64_t)obs_data_get_int(settings, OPT_DROP_THRESHOLD) * 1000;
 	stream->max_shutdown_time_sec =
 		(int)obs_data_get_int(settings, OPT_MAX_SHUTDOWN_TIME_SEC);
-*/
+
 	bind_ip = obs_data_get_string(settings, OPT_BIND_IP);
 	dstr_copy(&stream->bind_ip, bind_ip);
 

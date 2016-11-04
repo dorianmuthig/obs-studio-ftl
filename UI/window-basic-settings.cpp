@@ -23,6 +23,7 @@
 #include <initializer_list>
 #include <sstream>
 #include <QCompleter>
+#include <QGuiApplication>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QCloseEvent>
@@ -30,6 +31,7 @@
 #include <QDirIterator>
 #include <QVariant>
 #include <QTreeView>
+#include <QScreen>
 #include <QStandardItemModel>
 #include <QSpacerItem>
 
@@ -950,8 +952,6 @@ void OBSBasicSettings::LoadRendererList()
 #endif
 }
 
-Q_DECLARE_METATYPE(MonitorInfo);
-
 static string ResString(uint32_t cx, uint32_t cy)
 {
 	stringstream res;
@@ -1097,14 +1097,12 @@ void OBSBasicSettings::LoadResolutionLists()
 	uint32_t cy = config_get_uint(main->Config(), "Video", "BaseCY");
 	uint32_t out_cx = config_get_uint(main->Config(), "Video", "OutputCX");
 	uint32_t out_cy = config_get_uint(main->Config(), "Video", "OutputCY");
-	vector<MonitorInfo> monitors;
 
 	ui->baseResolution->clear();
 
-	GetMonitors(monitors);
-
-	for (MonitorInfo &monitor : monitors) {
-		string res = ResString(monitor.cx, monitor.cy);
+	for (QScreen* screen: QGuiApplication::screens()) {
+		QSize as = screen->size();
+		string res = ResString(as.width(), as.height());
 		ui->baseResolution->addItem(res.c_str());
 	}
 
@@ -3333,9 +3331,12 @@ void OBSBasicSettings::SimpleStreamingEncoderChanged()
 		preset = curNVENCPreset;
 
 	} else if (encoder == SIMPLE_ENCODER_AMD) {
-		/* none */
-		defaultPreset = "";
+		ui->simpleOutPreset->addItem("Speed", "speed");
+		ui->simpleOutPreset->addItem("Balanced", "balanced");
+		ui->simpleOutPreset->addItem("Quality", "quality");
 
+		defaultPreset = "balanced";
+		preset = curAMDPreset;
 	} else {
 		ui->simpleOutPreset->addItem("ultrafast", "ultrafast");
 		ui->simpleOutPreset->addItem("superfast", "superfast");

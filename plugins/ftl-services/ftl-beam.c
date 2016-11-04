@@ -266,6 +266,9 @@ static void fill_servers(obs_property_t *servers_prop, json_t *ingests, const ch
 
 	obs_property_list_clear(servers_prop);
 
+	/*add auto to list*/
+	obs_property_list_add_string(servers_prop, "Auto", "auto");
+
 	json_array_foreach(ingests, index, ingest) {
 		const char *name = get_string_val(ingest, "name");
 		const char *host = get_string_val(ingest, "host");
