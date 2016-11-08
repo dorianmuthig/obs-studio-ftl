@@ -35,7 +35,7 @@ if "%1" == "clean" (
 pushd .
 cd ..
 pushd .
-IF NOT EXIST "plugins\libftl\ftl-sdk" call git submodule update --init
+IF NOT EXIST "plugins\libftl\ftl-sdk\libftl" call git submodule update --init
 popd .
 IF EXIST build GOTO BUILD_DIR_EXISTS
 mkdir build

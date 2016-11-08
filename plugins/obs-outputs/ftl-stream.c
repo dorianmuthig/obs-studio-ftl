@@ -1057,7 +1057,7 @@ static bool init_connect(struct ftl_stream *stream)
 
 	if ((status_code = ftl_ingest_create(&stream->ftl_handle, &stream->params)) != FTL_SUCCESS) {
 		blog(LOG_ERROR, "Failed to create ingest handle %d\n", status_code);
-		return -1;
+		return false;
 	}
 
 	dstr_copy(&stream->username, obs_service_get_username(service));
