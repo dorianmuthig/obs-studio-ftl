@@ -1,6 +1,6 @@
 REM @Echo Off
 SET build_config=Release
-SET obs_version=0.16.5-ftl.16
+SET obs_version=0.16.6-ftl.17
 SET coredeps=C:\beam\tachyon_deps
 SET QTDIR64=C:\Qt\5.6\msvc2015_64
 SET QTDIR32=C:\Qt\5.6\msvc2015
@@ -46,7 +46,7 @@ if defined build32 (
 	echo Currently in Directory %cd%	
     rmdir CMakeFiles /s /q
 	del CMakeCache.txt
-	cmake -G "Visual Studio 14 2015" -DOBS_VERSION_OVERRIDE=%obs_version% -DCOPIED_DEPENDENCIES=false -DCOPY_DEPENDENCIES=true .. || goto DONE
+	cmake -G "Visual Studio 14 2015" -DCOMPILE_D3D12_HOOK=true -DOBS_VERSION_OVERRIDE=%obs_version% -DCOPIED_DEPENDENCIES=false -DCOPY_DEPENDENCIES=true .. || goto DONE
 	call msbuild /p:Configuration=%build_config% ALL_BUILD.vcxproj
 	copy %coredeps%\win32\bin\postproc-54.dll rundir\%build_config%\bin\32bit
 )
@@ -55,7 +55,7 @@ if defined build64 (
 	echo Currently in Directory %cd%	
     rmdir CMakeFiles /s /q
 	del CMakeCache.txt
-	cmake -G "Visual Studio 14 2015 Win64" -DOBS_VERSION_OVERRIDE=%obs_version% -DCOPIED_DEPENDENCIES=false -DCOPY_DEPENDENCIES=true .. || goto DONE
+	cmake -G "Visual Studio 14 2015 Win64" -DBUILD_AMF_ENCODER=true -DCOMPILE_D3D12_HOOK=true -DOBS_VERSION_OVERRIDE=%obs_version% -DCOPIED_DEPENDENCIES=false -DCOPY_DEPENDENCIES=true .. || goto DONE
 	call msbuild /p:Configuration=%build_config%,Platform=x64 ALL_BUILD.vcxproj || goto DONE
 	copy %coredeps%\win64\bin\postproc-54.dll rundir\%build_config%\bin\64bit
 )
