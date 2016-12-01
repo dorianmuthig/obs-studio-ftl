@@ -1,6 +1,6 @@
 REM @Echo Off
 SET build_config=Release
-SET obs_version=0.16.6-ftl.18
+SET obs_version=0.16.6-ftl.19
 SET coredeps=C:\beam\tachyon_deps
 SET QTDIR64=C:\Qt\5.6\msvc2015_64
 SET QTDIR32=C:\Qt\5.6\msvc2015
