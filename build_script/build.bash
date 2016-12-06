@@ -16,7 +16,7 @@ function getrepo {
   fi
   git checkout $3
 }
-obs_version=0.16.2-ftl.12
+obs_version=0.16.2-ftl.20
 do_browser=false;
 #do_opus=false;
 #do_vp8=false;
