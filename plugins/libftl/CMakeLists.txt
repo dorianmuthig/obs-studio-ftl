@@ -47,12 +47,17 @@ add_library(libftl SHARED
 	${FTLSDK_HEADERS}
 	${FTLSDK_PLATFORM_SOURCES}
 	${FTLSDK_PLATFORM_HEADERS})
-	
-set_target_properties(libftl PROPERTIES VERSION "0.5.0")
-set_target_properties(libftl PROPERTIES SOVERSION 0)	
 
+set_target_properties(libftl PROPERTIES
+        OUTPUT_NAME ftl
+        VERSION "0"
+        SOVERSION "0")
+
+	
 if(WIN32)
   target_link_libraries(libftl ws2_32 ${LIBCURL_LIBRARIES} ${OBS_JANSSON_IMPORT})
+else()
+  target_link_libraries(libftl ${LIBCURL_LIBRARIES} ${OBS_JANSSON_IMPORT})
 endif()
 	
 target_include_directories(libftl
@@ -68,3 +73,4 @@ include_directories (${CMAKE_CURRENT_SOURCE_DIR}/ftl-sdk/libftl/)
 #set(LIBFTL_INCLUDE_DIRS ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 install_obs_plugin_with_data(libftl data)
+
