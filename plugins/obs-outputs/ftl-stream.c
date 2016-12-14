@@ -1048,7 +1048,7 @@ static bool init_connect(struct ftl_stream *stream)
 	stream->params.audio_codec = FTL_AUDIO_OPUS;
 	stream->params.ingest_hostname = stream->path.array;
 	stream->params.vendor_name = "OBS Studio";
-	stream->params.vendor_version = version.array;
+	stream->params.vendor_version = OBS_VERSION;
 	stream->params.fps_num = 0; //not required when using ftl_ingest_send_media_dts
 	stream->params.fps_den = 0; // not required when using ftl_ingest_send_media_dts
 	stream->params.peak_kbps = 0;
