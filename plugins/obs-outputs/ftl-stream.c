@@ -971,7 +971,7 @@ static void *connect_thread(void *data)
 
 	if (ret != OBS_OUTPUT_SUCCESS) {
 		obs_output_signal_stop(stream->output, ret);
-		info("Connection to %s (%s) failed: %d", stream->path.array, ret);
+		info("Connection to %s failed: %d", stream->path.array, ret);
 	}
 
 	if (!stopping(stream))
