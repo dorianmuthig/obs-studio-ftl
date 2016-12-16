@@ -110,6 +110,8 @@ void log_libftl_messages(ftl_log_severity_t log_level, const char * message);
 static bool init_connect(struct ftl_stream *stream);
 static void *connect_thread(void *data);
 static void *status_thread(void *data);
+int _ftl_error_to_obs_error(int status);
+char * _ftl_error_to_string(int status);
 
 static const char *ftl_stream_getname(void *unused)
 {
@@ -231,7 +233,7 @@ static void *ftl_stream_create(obs_data_t *settings, obs_output_t *output)
 
 	stream->coded_pic_buffer.total = 0;
 	stream->coded_pic_buffer.complete_frame = 0;
-
+	
 	UNUSED_PARAMETER(settings);
 	return stream;
 
@@ -665,8 +667,8 @@ static int try_connect(struct ftl_stream *stream)
 	stream->height = (int)obs_output_get_height(stream->output);
 
 	if ((status_code = ftl_ingest_connect(&stream->ftl_handle)) != FTL_SUCCESS) {
-		printf("Failed to connect to ingest %d\n", status_code);
-		return OBS_OUTPUT_ERROR;
+		warn("Ingest connect failed with: %s", _ftl_error_to_string(status_code));
+		return _ftl_error_to_obs_error(status_code);
 	}
 
 	info("Connection to %s successful", stream->path.array);
@@ -906,20 +908,16 @@ static void *status_thread(void *data)
 		}
 
 		if (status.type == FTL_STATUS_EVENT && status.msg.event.type == FTL_STATUS_EVENT_TYPE_DISCONNECTED) {
-			blog(LOG_INFO, "Disconnected from ingest for reason %d\n", status.msg.event.reason);
+			blog(LOG_INFO, "Disconnected from ingest with reason: %s\n", _ftl_error_to_string(status.msg.event.error_code));
 
 			if (status.msg.event.reason == FTL_STATUS_EVENT_REASON_API_REQUEST) {
 				break;
 			}
 
-			//attempt reconnection
+			//tell OBS and it will trigger a reconnection
 			blog(LOG_WARNING, "Reconnecting to Ingest\n");
-			if ((status_code = ftl_ingest_connect(&stream->ftl_handle)) != FTL_SUCCESS) {
-				blog(LOG_WARNING, "Failed to connect to ingest %d\n", status_code);
-				obs_output_signal_stop(stream->output, OBS_OUTPUT_DISCONNECTED);
-				return NULL;
-			}
-			blog(LOG_WARNING, "Done\n");
+			obs_output_signal_stop(stream->output, OBS_OUTPUT_DISCONNECTED);
+			return 0;
 
 		}
 		else if(status.type == FTL_STATUS_LOG)
@@ -1056,7 +1054,7 @@ static bool init_connect(struct ftl_stream *stream)
 	blog(LOG_ERROR, "H.264 opts %s\n", obs_data_get_string(video_settings, "x264opts")); 
 
 	if ((status_code = ftl_ingest_create(&stream->ftl_handle, &stream->params)) != FTL_SUCCESS) {
-		blog(LOG_ERROR, "Failed to create ingest handle %d\n", status_code);
+		blog(LOG_ERROR, "Failed to create ingest handle (%s)\n", _ftl_error_to_string(status_code));
 		return false;
 	}
 
@@ -1077,48 +1075,136 @@ static bool init_connect(struct ftl_stream *stream)
 	return true;
 }
 
-// Returns 0 on success
-int map_ftl_error_to_obs_error(int status) {
 
-	UNUSED_PARAMETER(status);
+char * _ftl_error_to_string(int status) {
+
+	switch (status) {
+	case FTL_SUCCESS:
+		return "Success";
+	case FTL_SOCKET_NOT_CONNECTED:
+		return "The socket is no longer connected";
+	case FTL_MALLOC_FAILURE:
+		return "Internal memory allocation error";
+	case FTL_INTERNAL_ERROR:
+		return "An Internal error occurred";
+	case FTL_CONFIG_ERROR:
+		return "The parameters supplied are invalid or incomplete";
+	case FTL_NOT_ACTIVE_STREAM:
+		return "The stream is not active";
+	case FTL_NOT_CONNECTED:
+		return "The channel is not connected";
+	case FTL_ALREADY_CONNECTED:
+		return "The channel is already connected";
+	case FTL_STATUS_TIMEOUT:
+		return "Timed out waiting for status message";
+	case FTL_QUEUE_FULL:
+		return "The status queue is full";
+	case FTL_STATUS_WAITING_FOR_KEY_FRAME:
+		return "dropping packets until a key frame is recevied";
+	case FTL_QUEUE_EMPTY:
+		return "The status queue is empty";
+	case FTL_NOT_INITIALIZED:
+		return "The parameters were not correctly initialized";
+	case FTL_BAD_REQUEST:
+		return "A request to the ingest was invalid";
+	case FTL_DNS_FAILURE:
+		return "Failed to get an ip address for the specified ingest (DNS lookup failure)";
+	case FTL_CONNECT_ERROR:
+		return "An unknown error occurred connecting to the socket";
+	case FTL_UNSUPPORTED_MEDIA_TYPE:
+		return "The specified media type is not supported";
+	case FTL_OLD_VERSION:
+		return  "The current version of the FTL-SDK is no longer supported";
+	case FTL_UNAUTHORIZED:
+		return "This channel is not authorized to connect to this ingest";
+	case FTL_AUDIO_SSRC_COLLISION:
+		return "The Audio SSRC is already in use";
+	case FTL_VIDEO_SSRC_COLLISION:
+		return "The Video SSRC is already in use";
+	case FTL_STREAM_REJECTED:
+		return "The Ingest rejected the stream";
+	case FTL_BAD_OR_INVALID_STREAM_KEY:
+		return "Invalid stream key";
+	case FTL_CHANNEL_IN_USE:
+		return "Channel is already actively streaming";
+	case FTL_REGION_UNSUPPORTED:
+		return "The location you are attempting to stream from is not authorized to do so by the local government";
+	case FTL_NO_MEDIA_TIMEOUT:
+		return "The ingest did not receive any audio or video media for an extended period of time";
+	case FTL_USER_DISCONNECT:
+		return "ftl ingest disconnect api was called";
+	case FTL_UNKNOWN_ERROR_CODE:
+	default:
+		/* Unknown FTL error */
+		return "Unknown FTL error code";
+	}
+}
+
+// Returns 0 on success
+int _ftl_error_to_obs_error(int status) {
+
 	/* Map FTL errors to OBS errors */
-#if 0
-	int ftl_to_obs_error_code = 0;
+	
 	switch (status) {
 		case FTL_SUCCESS:
-			break;
+			return OBS_OUTPUT_SUCCESS;
+		case FTL_SOCKET_NOT_CONNECTED:
+			return OBS_OUTPUT_ERROR;
+		case FTL_MALLOC_FAILURE:
+			return OBS_OUTPUT_ERROR;
+		case FTL_INTERNAL_ERROR:
+			return OBS_OUTPUT_ERROR;
+		case FTL_CONFIG_ERROR:
+			return OBS_OUTPUT_ERROR;
+		case FTL_NOT_ACTIVE_STREAM:
+			return OBS_OUTPUT_ERROR;
+		case FTL_NOT_CONNECTED:
+			return OBS_OUTPUT_ERROR;
+		case FTL_ALREADY_CONNECTED:
+			return OBS_OUTPUT_ERROR;
+		case FTL_STATUS_TIMEOUT:
+			return OBS_OUTPUT_ERROR;
+		case FTL_QUEUE_FULL:
+			return OBS_OUTPUT_ERROR;
+		case FTL_STATUS_WAITING_FOR_KEY_FRAME:
+			return OBS_OUTPUT_ERROR;
+		case FTL_QUEUE_EMPTY:
+			return OBS_OUTPUT_ERROR;
+		case FTL_NOT_INITIALIZED:
+			return OBS_OUTPUT_ERROR;
+		case FTL_BAD_REQUEST:
+			return OBS_OUTPUT_CONNECT_FAILED;
 		case FTL_DNS_FAILURE:
-			ftl_to_obs_error_code = OBS_OUTPUT_FTL_DNS_FAILURE;
-			break;
+			return OBS_OUTPUT_CONNECT_FAILED;
 		case FTL_CONNECT_ERROR:
-			ftl_to_obs_error_code = OBS_OUTPUT_FTL_CONNECT_FAILURE;
-			break;
+			return OBS_OUTPUT_CONNECT_FAILED;
+		case FTL_UNSUPPORTED_MEDIA_TYPE:
+			return OBS_OUTPUT_CONNECT_FAILED;
 		case FTL_OLD_VERSION:
-			ftl_to_obs_error_code = OBS_OUTPUT_FTL_OLD_VERSION;
-			break;
-		case FTL_STREAM_REJECTED:
-			ftl_to_obs_error_code = OBS_OUTPUT_FTL_STREAM_REJECTED;
-			break;
+			return OBS_OUTPUT_CONNECT_FAILED;
 		case FTL_UNAUTHORIZED:
-			ftl_to_obs_error_code = OBS_OUTPUT_FTL_UNAUTHORIZED;
-			break;
+			return OBS_OUTPUT_CONNECT_FAILED;
 		case FTL_AUDIO_SSRC_COLLISION:
-			/* SSRC collision, let's back up and try with a new audio SSRC */
-			ftl_to_obs_error_code = OBS_OUTPUT_FTL_AUDIO_SSRC_COLLISION;
-			break;
+			return OBS_OUTPUT_CONNECT_FAILED;
 		case FTL_VIDEO_SSRC_COLLISION:
-			ftl_to_obs_error_code = OBS_OUTPUT_FTL_VIDEO_SSRC_COLLISION;
-			break;
-		/* Non-specific failures, or internal Tachyon bug */
+			return OBS_OUTPUT_CONNECT_FAILED;
+		case FTL_STREAM_REJECTED:
+			 return OBS_OUTPUT_CONNECT_FAILED;
+		case FTL_BAD_OR_INVALID_STREAM_KEY:
+			return OBS_OUTPUT_CONNECT_FAILED;
+		case FTL_CHANNEL_IN_USE:
+			return OBS_OUTPUT_CONNECT_FAILED;
+		case FTL_REGION_UNSUPPORTED:
+			return OBS_OUTPUT_CONNECT_FAILED;
+		case FTL_NO_MEDIA_TIMEOUT:
+			return OBS_OUTPUT_DISCONNECTED;
+		case FTL_USER_DISCONNECT:
+			return OBS_OUTPUT_SUCCESS;
+ 		case FTL_UNKNOWN_ERROR_CODE:
 		default:
 			/* Unknown FTL error */
-			blog (LOG_ERROR, "tachyon error mapping needs to be updated!");
-			ftl_to_obs_error_code = OBS_OUTPUT_ERROR;
+			return OBS_OUTPUT_ERROR;
 	}
-
-	return ftl_to_obs_error_code;
-#endif
-	return 0;
 }
 struct obs_output_info ftl_output_info = {
 	.id                 = "ftl_output",
