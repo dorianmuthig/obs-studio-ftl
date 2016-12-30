@@ -1,10 +1,10 @@
 REM @Echo Off
 SET build_config=Release
-SET obs_version=0.16.6-ftl.23
+SET obs_version=17.0.0-ftl.25a
 SET coredeps=C:\beam\tachyon_deps
 SET QTDIR64=C:\Qt\5.6\msvc2015_64
 SET QTDIR32=C:\Qt\5.6\msvc2015
-SET browser=C:\beam\obs-browser-1.23
+SET browser=C:\beam\obs-browser-1.25
 SET PATH=%PATH%;C:\Program Files (x86)\MSBuild\14.0\Bin;C:\Program Files (x86)\CMake\bin
 SET startingPath=%cd%
 SET DepsPath32=%coredeps%\win32
