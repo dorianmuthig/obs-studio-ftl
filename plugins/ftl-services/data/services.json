@@ -226,7 +226,7 @@
     "recommended": {
         "keyint": 3,
         "profile": "baseline",
-        "max video bitrate": 4000,
+        "max video bitrate": 10000,
         "max audio bitrate": 160,
         "audio sample rate": 48000,
         "x264opts": "scenecut=0"
