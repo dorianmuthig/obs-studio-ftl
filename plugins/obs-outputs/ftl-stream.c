@@ -111,7 +111,7 @@ static bool init_connect(struct ftl_stream *stream);
 static void *connect_thread(void *data);
 static void *status_thread(void *data);
 int _ftl_error_to_obs_error(int status);
-char * _ftl_error_to_string(int status);
+char * ftl_status_code_to_string(int status);
 
 static const char *ftl_stream_getname(void *unused)
 {
@@ -667,7 +667,7 @@ static int try_connect(struct ftl_stream *stream)
 	stream->height = (int)obs_output_get_height(stream->output);
 
 	if ((status_code = ftl_ingest_connect(&stream->ftl_handle)) != FTL_SUCCESS) {
-		warn("Ingest connect failed with: %s", _ftl_error_to_string(status_code));
+		warn("Ingest connect failed with: %s", ftl_status_code_to_string(status_code));
 		return _ftl_error_to_obs_error(status_code);
 	}
 
@@ -908,7 +908,7 @@ static void *status_thread(void *data)
 		}
 
 		if (status.type == FTL_STATUS_EVENT && status.msg.event.type == FTL_STATUS_EVENT_TYPE_DISCONNECTED) {
-			blog(LOG_INFO, "Disconnected from ingest with reason: %s\n", _ftl_error_to_string(status.msg.event.error_code));
+			blog(LOG_INFO, "Disconnected from ingest with reason: %s\n", ftl_status_code_to_string(status.msg.event.error_code));
 
 			if (status.msg.event.reason == FTL_STATUS_EVENT_REASON_API_REQUEST) {
 				break;
@@ -1054,7 +1054,7 @@ static bool init_connect(struct ftl_stream *stream)
 	blog(LOG_ERROR, "H.264 opts %s\n", obs_data_get_string(video_settings, "x264opts")); 
 
 	if ((status_code = ftl_ingest_create(&stream->ftl_handle, &stream->params)) != FTL_SUCCESS) {
-		blog(LOG_ERROR, "Failed to create ingest handle (%s)\n", _ftl_error_to_string(status_code));
+		blog(LOG_ERROR, "Failed to create ingest handle (%s)\n", ftl_status_code_to_string(status_code));
 		return false;
 	}
 
@@ -1073,79 +1073,6 @@ static bool init_connect(struct ftl_stream *stream)
 
 	obs_data_release(settings);
 	return true;
-}
-
-
-static char error_string[1024];
-
-static char * _ftl_create_error_string(const char *string) {
-	strncpy_s(error_string, sizeof(error_string), string, sizeof(error_string) - 1);
-	return error_string;
-}
-
-char * _ftl_error_to_string(int status) {
-
-	switch (status) {
-	case FTL_SUCCESS:
-		return _ftl_create_error_string("Success");
-	case FTL_SOCKET_NOT_CONNECTED:
-		return _ftl_create_error_string("The socket is no longer connected");
-	case FTL_MALLOC_FAILURE:
-		return _ftl_create_error_string("Internal memory allocation error");
-	case FTL_INTERNAL_ERROR:
-		return _ftl_create_error_string("An Internal error occurred");
-	case FTL_CONFIG_ERROR:
-		return _ftl_create_error_string("The parameters supplied are invalid or incomplete");
-	case FTL_NOT_ACTIVE_STREAM:
-		return _ftl_create_error_string("The stream is not active");
-	case FTL_NOT_CONNECTED:
-		return _ftl_create_error_string("The channel is not connected");
-	case FTL_ALREADY_CONNECTED:
-		return _ftl_create_error_string("The channel is already connected");
-	case FTL_STATUS_TIMEOUT:
-		return _ftl_create_error_string("Timed out waiting for status message");
-	case FTL_QUEUE_FULL:
-		return _ftl_create_error_string("The status queue is full");
-	case FTL_STATUS_WAITING_FOR_KEY_FRAME:
-		return _ftl_create_error_string("dropping packets until a key frame is recevied");
-	case FTL_QUEUE_EMPTY:
-		return _ftl_create_error_string("The status queue is empty");
-	case FTL_NOT_INITIALIZED:
-		return _ftl_create_error_string("The parameters were not correctly initialized");
-	case FTL_BAD_REQUEST:
-		return _ftl_create_error_string("A request to the ingest was invalid");
-	case FTL_DNS_FAILURE:
-		return _ftl_create_error_string("Failed to get an ip address for the specified ingest (DNS lookup failure)");
-	case FTL_CONNECT_ERROR:
-		return _ftl_create_error_string("An unknown error occurred connecting to the socket");
-	case FTL_UNSUPPORTED_MEDIA_TYPE:
-		return _ftl_create_error_string("The specified media type is not supported");
-	case FTL_OLD_VERSION:
-		return _ftl_create_error_string("The current version of the FTL-SDK is no longer supported");
-	case FTL_UNAUTHORIZED:
-		return _ftl_create_error_string("This channel is not authorized to connect to this ingest");
-	case FTL_AUDIO_SSRC_COLLISION:
-		return _ftl_create_error_string("The Audio SSRC is already in use");
-	case FTL_VIDEO_SSRC_COLLISION:
-		return _ftl_create_error_string("The Video SSRC is already in use");
-	case FTL_STREAM_REJECTED:
-		return _ftl_create_error_string("The Ingest rejected the stream");
-	case FTL_BAD_OR_INVALID_STREAM_KEY:
-		return _ftl_create_error_string("Invalid stream key");
-	case FTL_CHANNEL_IN_USE:
-		return _ftl_create_error_string("Channel is already actively streaming");
-	case FTL_REGION_UNSUPPORTED:
-		return _ftl_create_error_string("The location you are attempting to stream from is not authorized to do so by the local government");
-	case FTL_NO_MEDIA_TIMEOUT:
-		return _ftl_create_error_string("The ingest did not receive any audio or video media for an extended period of time");
-	case FTL_USER_DISCONNECT:
-		return _ftl_create_error_string("ftl ingest disconnect api was called");
-	case FTL_UNKNOWN_ERROR_CODE:
-	default:
-		/* Unknown FTL error */
-		_snprintf_s(error_string, sizeof(error_string), sizeof(error_string) - 1, "Unknown FTL error code (%d)", status);
-		return error_string;
-	}
 }
 
 // Returns 0 on success
