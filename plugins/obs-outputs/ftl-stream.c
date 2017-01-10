@@ -383,20 +383,15 @@ static int send_packet(struct ftl_stream *stream,
 
 static void set_peak_bitrate(struct ftl_stream *stream) {
 	int speedtest_kbps = 10000;
-	int speedtest_duration = 1000;
+	int speedtest_duration = 2000;
 
 	warn("Running speed test: sending %d kbps for %d ms", speedtest_kbps, speedtest_duration);
-	float packetloss_rate = 0;
-	packetloss_rate = ftl_ingest_speed_test(&stream->ftl_handle, speedtest_kbps, speedtest_duration);
+	int peak_kbps;
+	peak_kbps = ftl_ingest_speed_test(&stream->ftl_handle, speedtest_kbps, speedtest_duration);
 
-	if(packetloss_rate <= 1){
-		stream->params.peak_kbps = speedtest_kbps;
-	}
-	else{
-		stream->params.peak_kbps = (float)speedtest_kbps * (100.f - packetloss_rate) / 110;
-	}
+	stream->params.peak_kbps = peak_kbps;
 
-	warn("Running speed test complete: packet loss rate was %3.2f, setting peak bitrate to %d\n", packetloss_rate, stream->params.peak_kbps);
+	warn("Running speed test complete: setting peak bitrate to %d\n", stream->params.peak_kbps);
 
 	ftl_ingest_update_params(&stream->ftl_handle, &stream->params);
 }
