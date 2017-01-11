@@ -102,6 +102,7 @@ struct ftl_stream {
 
 	ftl_handle_t	    ftl_handle;
 	ftl_ingest_params_t params;
+	int peak_kbps;
 	uint32_t         scale_width, scale_height, width, height;
 	frame_of_nalus_t coded_pic_buffer;
 };
@@ -224,6 +225,7 @@ static void *ftl_stream_create(obs_data_t *settings, obs_output_t *output)
 	stream->output = output;
 	pthread_mutex_init_value(&stream->packets_mutex);
 	
+	stream->peak_kbps = -1;
 	ftl_init();
 
 	if (pthread_mutex_init(&stream->packets_mutex, NULL) != 0)
@@ -390,6 +392,7 @@ static void set_peak_bitrate(struct ftl_stream *stream) {
 	peak_kbps = ftl_ingest_speed_test(&stream->ftl_handle, speedtest_kbps, speedtest_duration);
 
 	stream->params.peak_kbps = peak_kbps;
+	stream->peak_kbps = peak_kbps;
 
 	warn("Running speed test complete: setting peak bitrate to %d\n", stream->params.peak_kbps);
 
@@ -668,7 +671,9 @@ static int try_connect(struct ftl_stream *stream)
 
 	info("Connection to %s successful", stream->path.array);
 
-	set_peak_bitrate(stream);
+	if (stream->peak_kbps < 0) {
+		set_peak_bitrate(stream);
+	}
 
 	pthread_create(&stream->status_thread, NULL, status_thread, stream);
 
@@ -895,12 +900,13 @@ static void *status_thread(void *data)
 	while (!disconnected(stream)) {
 		status_code = ftl_ingest_get_status(&stream->ftl_handle, &status, 1000);
 
-		if (status_code == FTL_STATUS_TIMEOUT) {
+		if (status_code == FTL_STATUS_TIMEOUT || status_code == FTL_QUEUE_EMPTY) {
 			continue;
 		}
 		else if (status_code == FTL_NOT_INITIALIZED) {
 			break;
 		}
+
 
 		if (status.type == FTL_STATUS_EVENT && status.msg.event.type == FTL_STATUS_EVENT_TYPE_DISCONNECTED) {
 			blog(LOG_INFO, "Disconnected from ingest with reason: %s\n", ftl_status_code_to_string(status.msg.event.error_code));
@@ -1044,7 +1050,7 @@ static bool init_connect(struct ftl_stream *stream)
 	stream->params.vendor_version = OBS_VERSION;
 	stream->params.fps_num = 0; //not required when using ftl_ingest_send_media_dts
 	stream->params.fps_den = 0; // not required when using ftl_ingest_send_media_dts
-	stream->params.peak_kbps = 0;
+	stream->params.peak_kbps = stream->peak_kbps < 0 ? 0 : stream->peak_kbps;
 
 	blog(LOG_ERROR, "H.264 opts %s\n", obs_data_get_string(video_settings, "x264opts")); 
 
