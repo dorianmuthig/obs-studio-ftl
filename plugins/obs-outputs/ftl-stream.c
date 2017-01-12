@@ -665,7 +665,7 @@ static int try_connect(struct ftl_stream *stream)
 	stream->height = (int)obs_output_get_height(stream->output);
 
 	if ((status_code = ftl_ingest_connect(&stream->ftl_handle)) != FTL_SUCCESS) {
-		warn("Ingest connect failed with: %s", ftl_status_code_to_string(status_code));
+		warn("Ingest connect failed with: %s (%d)", ftl_status_code_to_string(status_code), status_code);
 		return _ftl_error_to_obs_error(status_code);
 	}
 
