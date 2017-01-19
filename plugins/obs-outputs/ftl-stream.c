@@ -112,7 +112,6 @@ static bool init_connect(struct ftl_stream *stream);
 static void *connect_thread(void *data);
 static void *status_thread(void *data);
 int _ftl_error_to_obs_error(int status);
-char * ftl_status_code_to_string(int status);
 
 static const char *ftl_stream_getname(void *unused)
 {

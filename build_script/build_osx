@@ -6,7 +6,7 @@ build(){
   cd ..
   mkdir build
   cd build
-  cmake -DOBS_VERSION_OVERRIDE='0.16.6-ftl.20' ..
+  cmake -DOBS_VERSION_OVERRIDE='17.0.0-ftl.28' ..
   make
   sudo python2.7 ../build_script/build_app.py
   sudo chown -R :staff OBS.app
@@ -17,12 +17,12 @@ archive(){
    pushd .
    cd ../build
    echo "@@ Archiving build to DMG..."
-   hdiutil create -fs HFS+ -megabytes 70 -volname 'OBS-FTL Install' OBS-FTL.dmg
+   hdiutil create -fs HFS+ -megabytes 80 -volname 'OBS-FTL Install' OBS-FTL.dmg
    hdiutil mount OBS-FTL.dmg
    cp -r ./OBS.app "/Volumes/OBS-FTL Install/OBS-FTL.app"
    hdiutil unmount "/Volumes/OBS-FTL Install"
    mkdir dmg
-   cp OBS-FTL.dmg dmg/OBS_Studio-FTL.0.16.6.ftl20.dmg
+   cp OBS-FTL.dmg dmg/OBS_Studio-FTL.17.0.0.ftl.28.dmg
    popd
 }
 
