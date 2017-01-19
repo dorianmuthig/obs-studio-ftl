@@ -1,9 +1,11 @@
 REM @Echo Off
 SET build_config=Release
-SET obs_version=17.0.0-ftl.28
+SET obs_version=17.0.2-ftl.29
 SET coredeps=C:\beam\tachyon_deps
 SET QTDIR64=C:\Qt\5.6\msvc2015_64
 SET QTDIR32=C:\Qt\5.6\msvc2015
+SET cef_root_64=C:\beam\cef_binary_3.2883.1548.gd6fc4a4_windows64
+SET cef_root_32=C:\beam\cef_binary_3.2883.1548.gd6fc4a4_windows32
 SET browser=C:\beam\obs-browser-1.23
 SET PATH=%PATH%;C:\Program Files (x86)\MSBuild\14.0\Bin;C:\Program Files (x86)\CMake\bin
 SET startingPath=%cd%
@@ -17,14 +19,12 @@ if "%1" == "all" (
 SET build32=true
 SET build64=true
 SET package=true
-SET install_browser=true
 )
 if "%1" == "win64" (
 SET build64=true
 )
 if "%1" == "package" (
 SET package=true
-SET install_browser=true
 )
 if "%1" == "clean" (
    IF NOT EXIST ..\build GOTO NOBUILDDIR
@@ -46,7 +46,7 @@ if defined build32 (
 	echo Currently in Directory %cd%	
     rmdir CMakeFiles /s /q
 	del CMakeCache.txt
-	cmake -G "Visual Studio 14 2015" -DCOMPILE_D3D12_HOOK=true -DOBS_VERSION_OVERRIDE=%obs_version% -DCOPIED_DEPENDENCIES=false -DCOPY_DEPENDENCIES=true .. || goto DONE
+	cmake -G "Visual Studio 14 2015" -DCOMPILE_D3D12_HOOK=true -DCEF_ROOT_DIR=%cef_root_32% -DBUILD_BROWSER=ON -DOBS_VERSION_OVERRIDE=%obs_version% -DCOPIED_DEPENDENCIES=false -DCOPY_DEPENDENCIES=true .. || goto DONE
 	call msbuild /p:Configuration=%build_config% ALL_BUILD.vcxproj
 	copy %coredeps%\win32\bin\postproc-54.dll rundir\%build_config%\bin\32bit
 )
@@ -55,7 +55,7 @@ if defined build64 (
 	echo Currently in Directory %cd%	
     rmdir CMakeFiles /s /q
 	del CMakeCache.txt
-	cmake -G "Visual Studio 14 2015 Win64" -DBUILD_AMF_ENCODER=true -DCOMPILE_D3D12_HOOK=true -DOBS_VERSION_OVERRIDE=%obs_version% -DCOPIED_DEPENDENCIES=false -DCOPY_DEPENDENCIES=true .. || goto DONE
+	cmake -G "Visual Studio 14 2015 Win64" -DCEF_ROOT_DIR=%cef_root_64% -DBUILD_BROWSER=ON -DCOMPILE_D3D12_HOOK=true -DOBS_VERSION_OVERRIDE=%obs_version% -DCOPIED_DEPENDENCIES=false -DCOPY_DEPENDENCIES=true .. || goto DONE
 	call msbuild /p:Configuration=%build_config%,Platform=x64 ALL_BUILD.vcxproj || goto DONE
 	copy %coredeps%\win64\bin\postproc-54.dll rundir\%build_config%\bin\64bit
 )

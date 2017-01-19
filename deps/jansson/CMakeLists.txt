@@ -88,7 +88,7 @@ if (MSVC)
    add_definitions( "/W3 /D_CRT_SECURE_NO_WARNINGS /wd4005 /wd4996 /nologo" )
    
    # Disabled by OBS, options already set by top level CMakeLists
-   if (FALSE)
+   if (TRUE)
       set(CMAKE_C_FLAGS_RELEASE "/MT")
       set(CMAKE_C_FLAGS_DEBUG "/MTd")
    endif()
