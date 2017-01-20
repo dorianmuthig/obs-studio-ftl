@@ -908,33 +908,42 @@ static void *status_thread(void *data)
 
 
 		if (status.type == FTL_STATUS_EVENT && status.msg.event.type == FTL_STATUS_EVENT_TYPE_DISCONNECTED) {
-			blog(LOG_INFO, "Disconnected from ingest with reason: %s\n", ftl_status_code_to_string(status.msg.event.error_code));
+			blog(LOG_INFO, "Disconnected from ingest with reason: %s", ftl_status_code_to_string(status.msg.event.error_code));
 
 			if (status.msg.event.reason == FTL_STATUS_EVENT_REASON_API_REQUEST) {
 				break;
 			}
 
 			//tell OBS and it will trigger a reconnection
-			blog(LOG_WARNING, "Reconnecting to Ingest\n");
+			blog(LOG_WARNING, "Reconnecting to Ingest");
 			obs_output_signal_stop(stream->output, OBS_OUTPUT_DISCONNECTED);
 			return 0;
 
 		}
 		else if(status.type == FTL_STATUS_LOG)
 		{
-			blog(LOG_INFO, "[%d] %s\n", status.msg.log.log_level, status.msg.log.string);
+			blog(LOG_INFO, "[%d] %s", status.msg.log.log_level, status.msg.log.string);
 		}
-		else if (status.type == FTL_STATUS_VIDEO_PACKETS) {
+		else if (status.type == FTL_STATUS_VIDEO_PACKETS)
+		{
 			ftl_packet_stats_msg_t *p = &status.msg.pkt_stats;
 
-			blog(LOG_INFO, "Avg packet send per second %3.1f, nack requests %d, avg transmit delay %d (min: %d, max: %d)\n",
+			blog(LOG_INFO, "Avg packet send per second %3.1f, total nack requests %d",
 				(float)p->sent * 1000.f / p->period,
-				p->nack_reqs, p->avg_xmit_delay, p->min_xmit_delay, p->max_xmit_delay);
+				p->nack_reqs);
+		}
+		else if (status.type == FTL_STATUS_VIDEO_PACKETS_INSTANT)
+		{
+			ftl_packet_stats_instant_msg_t *p = &status.msg.ipkt_stats;
+
+			blog(LOG_INFO, "avg transmit delay %dms (min: %d, max: %d), avg rtt %dms (min: %d, max: %d)",
+				p->avg_xmit_delay, p->min_xmit_delay, p->max_xmit_delay,
+				p->avg_rtt, p->min_rtt, p->max_rtt);
 		}
 		else if (status.type == FTL_STATUS_VIDEO) {
 			ftl_video_frame_stats_msg_t *v = &status.msg.video_stats;
 
-			blog(LOG_INFO, "Queue an average of %3.2f fps (%3.1f kbps), sent an average of %3.2f fps (%3.1f kbps), queue fullness %d, max frame size %d\n",
+			blog(LOG_INFO, "Queue an average of %3.2f fps (%3.1f kbps), sent an average of %3.2f fps (%3.1f kbps), queue fullness %d, max frame size %d",
 				(float)v->frames_queued * 1000.f / v->period,
 				(float)v->bytes_queued / v->period * 8,
 				(float)v->frames_sent * 1000.f / v->period,
@@ -942,7 +951,7 @@ static void *status_thread(void *data)
 				v->queue_fullness, v->max_frame_size);
 		}
 		else {
-			blog(LOG_INFO, "Status:  Got Status message of type %d\n", status.type);
+			blog(LOG_INFO, "Status:  Got Status message of type %d", status.type);
 		}
 	}
 
