@@ -385,17 +385,20 @@ static int send_packet(struct ftl_stream *stream,
 static void set_peak_bitrate(struct ftl_stream *stream) {
 	int speedtest_kbps = 10000;
 	int speedtest_duration = 2000;
+	speed_test_t results;
+	ftl_status_t status_code;
 
-	warn("Running speed test: sending %d kbps for %d ms", speedtest_kbps, speedtest_duration);
-	int peak_kbps;
-	peak_kbps = ftl_ingest_speed_test(&stream->ftl_handle, speedtest_kbps, speedtest_duration);
+	if ((status_code = ftl_ingest_speed_test_ex(&stream->ftl_handle, speedtest_kbps, speedtest_duration, &results)) == FTL_SUCCESS) {
+		info("Speed test completed: Peak kbps %d, initial rtt %d, final rtt %d, %3.2f lost packets\n",
+			results.peak_kbps, results.starting_rtt, results.ending_rtt, (float)results.lost_pkts * 100.f / (float)results.pkts_sent);
 
-	stream->params.peak_kbps = peak_kbps;
-	stream->peak_kbps = peak_kbps;
+		stream->peak_kbps = stream->params.peak_kbps = results.peak_kbps;
 
-	warn("Running speed test complete: setting peak bitrate to %d\n", stream->params.peak_kbps);
-
-	ftl_ingest_update_params(&stream->ftl_handle, &stream->params);
+		ftl_ingest_update_params(&stream->ftl_handle, &stream->params);
+	}
+	else {
+		warn("Speed test failed with: %s\n", ftl_status_code_to_string(status_code));
+	}
 }
 
 static inline bool send_headers(struct ftl_stream *stream, int64_t dts_usec);
