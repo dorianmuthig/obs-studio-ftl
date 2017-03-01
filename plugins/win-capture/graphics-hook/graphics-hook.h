@@ -1,5 +1,7 @@
 #pragma once
 
+#include "graphics-hook-config.h"
+
 #ifdef _MSC_VER
 /* conversion from data/function pointer */
 #pragma warning(disable: 4152)
@@ -41,10 +43,15 @@ extern bool hook_d3d9(void);
 extern bool hook_dxgi(void);
 extern bool hook_gl(void);
 
-extern void d3d10_capture(void *swap, void *backbuffer);
+extern void d3d10_capture(void *swap, void *backbuffer, bool capture_overlay);
 extern void d3d10_free(void);
-extern void d3d11_capture(void *swap, void *backbuffer);
+extern void d3d11_capture(void *swap, void *backbuffer, bool capture_overlay);
 extern void d3d11_free(void);
+
+#if COMPILE_D3D12_HOOK
+extern void d3d12_capture(void *swap, void *backbuffer, bool capture_overlay);
+extern void d3d12_free(void);
+#endif
 
 extern uint8_t *get_d3d1x_vertex_shader(size_t *size);
 extern uint8_t *get_d3d1x_pixel_shader(size_t *size);
@@ -91,7 +98,7 @@ extern HANDLE signal_exit;
 extern HANDLE tex_mutexes[2];
 extern char system_path[MAX_PATH];
 extern char process_name[MAX_PATH];
-extern char keepalive_name[64];
+extern wchar_t keepalive_name[64];
 extern HWND dummy_window;
 extern volatile bool active;
 
@@ -136,13 +143,13 @@ static inline HMODULE load_system_library(const char *name)
 
 static inline bool capture_alive(void)
 {
-	HANDLE event = OpenEventA(EVENT_ALL_ACCESS, false, keepalive_name);
-	if (event) {
-		CloseHandle(event);
-		return true;
-	}
+	HANDLE handle = OpenMutexW(SYNCHRONIZE, false, keepalive_name);
+	CloseHandle(handle);
 
-	return false;
+	if (handle)
+		return true;
+
+	return GetLastError() != ERROR_FILE_NOT_FOUND;
 }
 
 static inline bool capture_active(void)
@@ -191,8 +198,18 @@ static inline bool capture_should_stop(void)
 {
 	bool stop_requested = false;
 
-	if (capture_active())
-		stop_requested = capture_stopped() || !capture_alive();
+	if (capture_active()) {
+		static uint64_t last_keepalive_check = 0;
+		uint64_t cur_time = os_gettime_ns();
+		bool alive = true;
+
+		if (cur_time - last_keepalive_check > 5000000000) {
+			alive = capture_alive();
+			last_keepalive_check = cur_time;
+		}
+
+		stop_requested = capture_stopped() || !alive;
+	}
 
 	return stop_requested;
 }

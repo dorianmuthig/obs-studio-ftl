@@ -533,8 +533,8 @@ enum obs_base_effect {
 EXPORT gs_effect_t *obs_get_base_effect(enum obs_base_effect effect);
 
 /* DEPRECATED: gets texture_rect default effect */
-DEPRECATED_START EXPORT gs_effect_t *obs_get_default_rect_effect(void)
-	DEPRECATED_END;
+DEPRECATED
+EXPORT gs_effect_t *obs_get_default_rect_effect(void);
 
 /** Returns the primary obs signal handler */
 EXPORT signal_handler_t *obs_get_signal_handler(void);
@@ -582,6 +582,15 @@ EXPORT enum obs_obj_type obs_obj_get_type(void *obj);
 EXPORT const char *obs_obj_get_id(void *obj);
 EXPORT bool obs_obj_invalid(void *obj);
 
+typedef bool (*obs_enum_audio_device_cb)(void *data, const char *name,
+		const char *id);
+
+EXPORT void obs_enum_audio_monitoring_devices(obs_enum_audio_device_cb cb,
+		void *data);
+
+EXPORT bool obs_set_audio_monitoring_device(const char *name, const char *id);
+EXPORT void obs_get_audio_monitoring_device(const char **name, const char **id);
+
 
 /* ------------------------------------------------------------------------- */
 /* View context */
@@ -609,6 +618,8 @@ EXPORT obs_source_t *obs_view_get_source(obs_view_t *view,
 EXPORT void obs_view_render(obs_view_t *view);
 
 EXPORT uint64_t obs_get_video_frame_time(void);
+
+EXPORT double obs_get_active_fps(void);
 
 
 /* ------------------------------------------------------------------------- */
@@ -910,6 +921,17 @@ EXPORT enum obs_deinterlace_mode obs_source_get_deinterlace_mode(
 EXPORT void obs_source_set_deinterlace_field_order(obs_source_t *source,
 		enum obs_deinterlace_field_order field_order);
 EXPORT enum obs_deinterlace_field_order obs_source_get_deinterlace_field_order(
+		const obs_source_t *source);
+
+enum obs_monitoring_type {
+	OBS_MONITORING_TYPE_NONE,
+	OBS_MONITORING_TYPE_MONITOR_ONLY,
+	OBS_MONITORING_TYPE_MONITOR_AND_OUTPUT
+};
+
+EXPORT void obs_source_set_monitoring_type(obs_source_t *source,
+		enum obs_monitoring_type type);
+EXPORT enum obs_monitoring_type obs_source_get_monitoring_type(
 		const obs_source_t *source);
 
 /* ------------------------------------------------------------------------- */
@@ -1458,6 +1480,13 @@ EXPORT uint32_t obs_output_get_height(const obs_output_t *output);
 
 EXPORT const char *obs_output_get_id(const obs_output_t *output);
 
+#if BUILD_CAPTIONS
+EXPORT void obs_output_output_caption_text1(obs_output_t *output,
+		const char *text);
+#endif
+
+EXPORT float obs_output_get_congestion(obs_output_t *output);
+
 /* ------------------------------------------------------------------------- */
 /* Functions used by outputs */
 
@@ -1649,10 +1678,16 @@ EXPORT const char *obs_encoder_get_id(const obs_encoder_t *encoder);
 EXPORT uint32_t obs_get_encoder_caps(const char *encoder_id);
 
 /** Duplicates an encoder packet */
+DEPRECATED
 EXPORT void obs_duplicate_encoder_packet(struct encoder_packet *dst,
 		const struct encoder_packet *src);
 
+DEPRECATED
 EXPORT void obs_free_encoder_packet(struct encoder_packet *packet);
+
+EXPORT void obs_encoder_packet_ref(struct encoder_packet *dst,
+		struct encoder_packet *src);
+EXPORT void obs_encoder_packet_release(struct encoder_packet *packet);
 
 
 /* ------------------------------------------------------------------------- */

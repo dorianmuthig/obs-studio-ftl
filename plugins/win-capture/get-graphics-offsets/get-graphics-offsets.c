@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include <inttypes.h>
 #include <stdio.h>
 #include <windows.h>
@@ -31,6 +30,8 @@ int main(int argc, char *argv[])
 	printf("present=0x%"PRIx32"\n", d3d9.present);
 	printf("present_ex=0x%"PRIx32"\n", d3d9.present_ex);
 	printf("present_swap=0x%"PRIx32"\n", d3d9.present_swap);
+	printf("d3d9_clsoff=0x%"PRIx32"\n", d3d9.d3d9_clsoff);
+	printf("is_d3d9ex_clsoff=0x%"PRIx32"\n", d3d9.is_d3d9ex_clsoff);
 	printf("[dxgi]\n");
 	printf("present=0x%"PRIx32"\n", dxgi.present);
 	printf("resize=0x%"PRIx32"\n", dxgi.resize);

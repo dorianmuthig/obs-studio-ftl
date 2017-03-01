@@ -162,7 +162,7 @@ static void scene_destroy(void *data)
 
 static void scene_enum_sources(void *data,
 		obs_source_enum_proc_t enum_callback,
-		void *param)
+		void *param, bool active)
 {
 	struct obs_scene *scene = data;
 	struct obs_scene_item *item;
@@ -175,7 +175,7 @@ static void scene_enum_sources(void *data,
 		next = item->next;
 
 		obs_sceneitem_addref(item);
-		if (os_atomic_load_long(&item->active_refs) > 0)
+		if (!active || os_atomic_load_long(&item->active_refs) > 0)
 			enum_callback(scene->source, item->source, param);
 		obs_sceneitem_release(item);
 
@@ -183,6 +183,20 @@ static void scene_enum_sources(void *data,
 	}
 
 	full_unlock(scene);
+}
+
+static void scene_enum_active_sources(void *data,
+		obs_source_enum_proc_t enum_callback,
+		void *param)
+{
+	scene_enum_sources(data, enum_callback, param, true);
+}
+
+static void scene_enum_all_sources(void *data,
+		obs_source_enum_proc_t enum_callback,
+		void *param)
+{
+	scene_enum_sources(data, enum_callback, param, false);
 }
 
 static inline void detach_sceneitem(struct obs_scene_item *item)
@@ -741,11 +755,13 @@ static void apply_scene_item_audio_actions(struct obs_scene_item *item,
 	bool cur_visible = item->visible;
 	uint64_t frame_num = 0;
 	size_t deref_count = 0;
-	float *buf;
+	float *buf = NULL;
 
-	if (!*p_buf)
-		*p_buf = malloc(AUDIO_OUTPUT_FRAMES * sizeof(float));
-	buf = *p_buf;
+	if (p_buf) {
+		if (!*p_buf)
+			*p_buf = malloc(AUDIO_OUTPUT_FRAMES * sizeof(float));
+		buf = *p_buf;
+	}
 
 	pthread_mutex_lock(&item->actions_mutex);
 
@@ -760,7 +776,7 @@ static void apply_scene_item_audio_actions(struct obs_scene_item *item,
 		new_frame_num = (timestamp - ts) * (uint64_t)sample_rate /
 			1000000000ULL;
 
-		if (new_frame_num >= AUDIO_OUTPUT_FRAMES)
+		if (ts && new_frame_num >= AUDIO_OUTPUT_FRAMES)
 			break;
 
 		da_erase(item->audio_actions, i--);
@@ -769,7 +785,7 @@ static void apply_scene_item_audio_actions(struct obs_scene_item *item,
 		if (!item->visible)
 			deref_count++;
 
-		if (new_frame_num > frame_num) {
+		if (buf && new_frame_num > frame_num) {
 			for (; frame_num < new_frame_num; frame_num++)
 				buf[frame_num] = cur_visible ? 1.0f : 0.0f;
 		}
@@ -777,8 +793,10 @@ static void apply_scene_item_audio_actions(struct obs_scene_item *item,
 		cur_visible = item->visible;
 	}
 
-	for (; frame_num < AUDIO_OUTPUT_FRAMES; frame_num++)
-		buf[frame_num] = cur_visible ? 1.0f : 0.0f;
+	if (buf) {
+		for (; frame_num < AUDIO_OUTPUT_FRAMES; frame_num++)
+			buf[frame_num] = cur_visible ? 1.0f : 0.0f;
+	}
 
 	pthread_mutex_unlock(&item->actions_mutex);
 
@@ -790,7 +808,7 @@ static void apply_scene_item_audio_actions(struct obs_scene_item *item,
 	}
 }
 
-static inline bool apply_scene_item_volume(struct obs_scene_item *item,
+static bool apply_scene_item_volume(struct obs_scene_item *item,
 		float **buf, uint64_t ts, size_t sample_rate)
 {
 	bool actions_pending;
@@ -808,7 +826,7 @@ static inline bool apply_scene_item_volume(struct obs_scene_item *item,
 		uint64_t duration = (uint64_t)AUDIO_OUTPUT_FRAMES *
 			1000000000ULL / (uint64_t)sample_rate;
 
-		if (action.timestamp < (ts + duration)) {
+		if (!ts || action.timestamp < (ts + duration)) {
 			apply_scene_item_audio_actions(item, buf, ts,
 					sample_rate);
 			return true;
@@ -816,6 +834,12 @@ static inline bool apply_scene_item_volume(struct obs_scene_item *item,
 	}
 
 	return false;
+}
+
+static void process_all_audio_actions(struct obs_scene_item *item,
+		size_t sample_rate)
+{
+	while (apply_scene_item_volume(item, NULL, 0, sample_rate));
 }
 
 static void mix_audio_with_buf(float *p_out, float *p_in, float *buf_in,
@@ -859,7 +883,7 @@ static bool scene_audio_render(void *data, uint64_t *ts_out,
 			uint64_t source_ts =
 				obs_source_get_audio_timestamp(item->source);
 
-			if (!timestamp || source_ts < timestamp)
+			if (source_ts && (!timestamp || source_ts < timestamp))
 				timestamp = source_ts;
 		}
 
@@ -867,6 +891,14 @@ static bool scene_audio_render(void *data, uint64_t *ts_out,
 	}
 
 	if (!timestamp) {
+		/* just process all pending audio actions if no audio playing,
+		 * otherwise audio actions will just never be processed */
+		item = scene->first_item;
+		while (item) {
+			process_all_audio_actions(item, sample_rate);
+			item = item->next;
+		}
+
 		audio_unlock(scene);
 		return false;
 	}
@@ -886,6 +918,11 @@ static bool scene_audio_render(void *data, uint64_t *ts_out,
 		}
 
 		source_ts = obs_source_get_audio_timestamp(item->source);
+		if (!source_ts) {
+			item = item->next;
+			continue;
+		}
+
 		pos = (size_t)ns_to_audio_frames(sample_rate,
 				source_ts - timestamp);
 		count = AUDIO_OUTPUT_FRAMES - pos;
@@ -939,7 +976,8 @@ const struct obs_source_info scene_info =
 	.get_height    = scene_getheight,
 	.load          = scene_load,
 	.save          = scene_save,
-	.enum_active_sources = scene_enum_sources
+	.enum_active_sources = scene_enum_active_sources,
+	.enum_all_sources = scene_enum_all_sources
 };
 
 obs_scene_t *obs_scene_create(const char *name)
@@ -1054,6 +1092,8 @@ obs_scene_t *obs_scene_duplicate(obs_scene_t *scene, const char *name,
 			new_item->align = item->align;
 			new_item->last_width = item->last_width;
 			new_item->last_height = item->last_height;
+			new_item->output_scale = item->output_scale;
+			new_item->scale_filter = item->scale_filter;
 			new_item->box_transform = item->box_transform;
 			new_item->draw_transform = item->draw_transform;
 			new_item->bounds_type = item->bounds_type;
@@ -1360,8 +1400,7 @@ void obs_sceneitem_remove(obs_sceneitem_t *item)
 
 	scene = item->parent;
 
-	if (scene)
-		full_lock(scene);
+	full_lock(scene);
 
 	if (item->removed) {
 		if (scene)

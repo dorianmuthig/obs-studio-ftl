@@ -73,11 +73,12 @@ static void flv_output_stop(void *data, uint64_t ts)
 	struct flv_output *stream = data;
 
 	if (stream->active) {
-		if (stream->file)
+		if (stream->file) {
 			write_file_info(stream->file, stream->last_packet_ts,
 					os_ftelli64(stream->file));
 
-		fclose(stream->file);
+			fclose(stream->file);
+		}
 		obs_output_end_data_capture(stream->output);
 		stream->active = false;
 		stream->sent_headers = false;
@@ -100,7 +101,7 @@ static int write_packet(struct flv_output *stream,
 	flv_packet_mux(packet, &data, &size, is_header);
 	fwrite(data, 1, size, stream->file);
 	bfree(data);
-	obs_free_encoder_packet(packet);
+	obs_encoder_packet_release(packet);
 
 	return ret;
 }
@@ -200,7 +201,7 @@ static void flv_output_data(void *data, struct encoder_packet *packet)
 	if (packet->type == OBS_ENCODER_VIDEO) {
 		obs_parse_avc_packet(&parsed_packet, packet);
 		write_packet(stream, &parsed_packet, false);
-		obs_free_encoder_packet(&parsed_packet);
+		obs_encoder_packet_release(&parsed_packet);
 	} else {
 		write_packet(stream, packet, false);
 	}

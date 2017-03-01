@@ -488,9 +488,21 @@ static bool obs_init_audio(struct audio_output_info *ai)
 	struct obs_core_audio *audio = &obs->audio;
 	int errorcode;
 
-	/* TODO: sound subsystem */
+	pthread_mutexattr_t attr;
+
+	pthread_mutex_init_value(&audio->monitoring_mutex);
+
+	if (pthread_mutexattr_init(&attr) != 0)
+		return false;
+	if (pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE) != 0)
+		return false;
+	if (pthread_mutex_init(&audio->monitoring_mutex, &attr) != 0)
+		return false;
 
 	audio->user_volume    = 1.0f;
+
+	audio->monitoring_device_name = bstrdup("Default");
+	audio->monitoring_device_id = bstrdup("default");
 
 	errorcode = audio_output_open(&audio->audio, ai);
 	if (errorcode == AUDIO_OUTPUT_SUCCESS)
@@ -512,6 +524,11 @@ static void obs_free_audio(void)
 	circlebuf_free(&audio->buffered_timestamps);
 	da_free(audio->render_order);
 	da_free(audio->root_nodes);
+
+	da_free(audio->monitors);
+	bfree(audio->monitoring_device_name);
+	bfree(audio->monitoring_device_id);
+	pthread_mutex_destroy(&audio->monitoring_mutex);
 
 	memset(audio, 0, sizeof(struct obs_core_audio));
 }
@@ -725,6 +742,8 @@ static bool obs_init(const char *locale, const char *module_config_path,
 {
 	obs = bzalloc(sizeof(struct obs_core));
 
+	pthread_mutex_init_value(&obs->audio.monitoring_mutex);
+
 	obs->name_store_owned = !store;
 	obs->name_store = store ? store : profiler_name_store_create();
 	if (!obs->name_store) {
@@ -820,6 +839,8 @@ void obs_shutdown(void)
 	obs_free_graphics();
 	proc_handler_destroy(obs->procs);
 	signal_handler_destroy(obs->signals);
+	obs->procs = NULL;
+	obs->signals = NULL;
 
 	module = obs->first_module;
 	while (module) {
@@ -906,11 +927,6 @@ int obs_reset_video(struct obs_video_info *ovi)
 	stop_video();
 	obs_free_video();
 
-	if (!ovi) {
-		obs_free_graphics();
-		return OBS_VIDEO_SUCCESS;
-	}
-
 	/* align to multiple-of-two and SSE alignment sizes */
 	ovi->output_width  &= 0xFFFFFFFC;
 	ovi->output_height &= 0xFFFFFFFE;
@@ -923,14 +939,35 @@ int obs_reset_video(struct obs_video_info *ovi)
 		}
 	}
 
+	const char *scale_type_name = "";
+	switch (ovi->scale_type) {
+	case OBS_SCALE_DISABLE:
+		scale_type_name = "Disabled";
+		break;
+	case OBS_SCALE_POINT:
+		scale_type_name = "Point";
+		break;
+	case OBS_SCALE_BICUBIC:
+		scale_type_name = "Bicubic";
+		break;
+	case OBS_SCALE_BILINEAR:
+		scale_type_name = "Bilinear";
+		break;
+	case OBS_SCALE_LANCZOS:
+		scale_type_name = "Lanczos";
+		break;
+	}
+
 	blog(LOG_INFO, "---------------------------------");
 	blog(LOG_INFO, "video settings reset:\n"
 	               "\tbase resolution:   %dx%d\n"
 	               "\toutput resolution: %dx%d\n"
+	               "\tdownscale filter:  %s\n"
 	               "\tfps:               %d/%d\n"
 	               "\tformat:            %s",
 	               ovi->base_width, ovi->base_height,
 	               ovi->output_width, ovi->output_height,
+	               scale_type_name,
 	               ovi->fps_num, ovi->fps_den,
 		       get_video_format_name(ovi->output_format));
 
@@ -1219,6 +1256,7 @@ void obs_enum_sources(bool (*enum_proc)(void*, obs_source_t*), void *param)
 			(obs_source_t*)source->context.next;
 
 		if ((source->info.type == OBS_SOURCE_TYPE_INPUT) != 0 &&
+		    !source->context.private &&
 		    !enum_proc(param, source))
 			break;
 
@@ -1430,6 +1468,7 @@ static obs_source_t *obs_load_source_type(obs_data_t *source_data)
 	uint32_t     mixers;
 	int          di_order;
 	int          di_mode;
+	int          monitoring_type;
 
 	source = obs_source_create(id, name, settings, hotkeys);
 
@@ -1480,6 +1519,10 @@ static obs_source_t *obs_load_source_type(obs_data_t *source_data)
 	di_order = (int)obs_data_get_int(source_data, "deinterlace_field_order");
 	obs_source_set_deinterlace_field_order(source,
 			(enum obs_deinterlace_field_order)di_order);
+
+	monitoring_type = (int)obs_data_get_int(source_data, "monitoring_type");
+	obs_source_set_monitoring_type(source,
+			(enum obs_monitoring_type)monitoring_type);
 
 	if (filters) {
 		size_t count = obs_data_array_count(filters);
@@ -1577,6 +1620,7 @@ obs_data_t *obs_save_source(obs_source_t *source)
 	uint64_t   ptm_delay   = obs_source_get_push_to_mute_delay(source);
 	bool       push_to_talk= obs_source_push_to_talk_enabled(source);
 	uint64_t   ptt_delay   = obs_source_get_push_to_talk_delay(source);
+	int        m_type      = (int)obs_source_get_monitoring_type(source);
 	int        di_mode     = (int)obs_source_get_deinterlace_mode(source);
 	int        di_order    =
 		(int)obs_source_get_deinterlace_field_order(source);
@@ -1606,6 +1650,7 @@ obs_data_t *obs_save_source(obs_source_t *source)
 	obs_data_set_obj   (source_data, "hotkeys",  hotkey_data);
 	obs_data_set_int   (source_data, "deinterlace_mode", di_mode);
 	obs_data_set_int   (source_data, "deinterlace_field_order", di_order);
+	obs_data_set_int   (source_data, "monitoring_type", m_type);
 
 	if (source->info.type == OBS_SOURCE_TYPE_TRANSITION)
 		obs_transition_save(source, source_data);
@@ -1816,6 +1861,11 @@ uint64_t obs_get_video_frame_time(void)
 	return obs ? obs->video.video_time : 0;
 }
 
+double obs_get_active_fps(void)
+{
+	return obs ? obs->video.video_fps : 0.0;
+}
+
 enum obs_obj_type obs_obj_get_type(void *obj)
 {
 	struct obs_context_data *context = obj;
@@ -1846,4 +1896,48 @@ bool obs_obj_invalid(void *obj)
 		return true;
 
 	return !context->data;
+}
+
+bool obs_set_audio_monitoring_device(const char *name, const char *id)
+{
+	if (!obs || !name || !id || !*name || !*id)
+		return false;
+
+#ifdef _WIN32
+	pthread_mutex_lock(&obs->audio.monitoring_mutex);
+
+	if (strcmp(id, obs->audio.monitoring_device_id) == 0) {
+		pthread_mutex_unlock(&obs->audio.monitoring_mutex);
+		return true;
+	}
+
+	if (obs->audio.monitoring_device_name)
+		bfree(obs->audio.monitoring_device_name);
+	if (obs->audio.monitoring_device_id)
+		bfree(obs->audio.monitoring_device_id);
+
+	obs->audio.monitoring_device_name = bstrdup(name);
+	obs->audio.monitoring_device_id = bstrdup(id);
+
+	for (size_t i = 0; i < obs->audio.monitors.num; i++) {
+		struct audio_monitor *monitor = obs->audio.monitors.array[i];
+		audio_monitor_reset(monitor);
+	}
+
+	pthread_mutex_unlock(&obs->audio.monitoring_mutex);
+	return true;
+#else
+	return false;
+#endif
+}
+
+void obs_get_audio_monitoring_device(const char **name, const char **id)
+{
+	if (!obs)
+		return;
+
+	if (name)
+		*name = obs->audio.monitoring_device_name;
+	if (id)
+		*id = obs->audio.monitoring_device_id;
 }

@@ -221,6 +221,14 @@ int device_create(gs_device_t **p_device, uint32_t adapter)
 	device_leave_context(device);
 	device->cur_swap = NULL;
 
+#ifdef _WIN32
+	blog(LOG_INFO, "Warning: The OpenGL renderer is currently in use.  "
+			"On windows, the OpenGL renderer can decrease "
+			"capture performance due to the lack of specific "
+			"features used to maximize capture performance.  "
+			"The Direct3D 11 renderer is recommended instead.");
+#endif
+
 	*p_device = device;
 	return GS_SUCCESS;
 
@@ -447,7 +455,7 @@ void device_load_texture(gs_device_t *device, gs_texture_t *tex, int unit)
 
 	/* need a pixel shader to properly bind textures */
 	if (!device->cur_pixel_shader)
-		tex = NULL;
+		goto fail;
 
 	if (cur_tex == tex)
 		return;

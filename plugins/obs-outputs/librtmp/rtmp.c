@@ -650,7 +650,7 @@ int RTMP_AddStream(RTMP *r, const char *playpath)
 }
 
 static int
-add_addr_info(struct sockaddr_storage *service, socklen_t *addrlen, AVal *host, int port)
+add_addr_info(struct sockaddr_storage *service, socklen_t *addrlen, AVal *host, int port, socklen_t addrlen_hint)
 {
     char *hostname;
     int ret = TRUE;
@@ -695,16 +695,29 @@ add_addr_info(struct sockaddr_storage *service, socklen_t *addrlen, AVal *host, 
         goto finish;
     }
 
-    // they should come back in OS preferred order
+    // prefer ipv4 results, since lots of ISPs have broken ipv6 connectivity
     for (ptr = result; ptr != NULL; ptr = ptr->ai_next)
     {
-        if (ptr->ai_family == AF_INET || ptr->ai_family == AF_INET6)
+        if (ptr->ai_family == AF_INET && (!addrlen_hint || ptr->ai_addrlen == addrlen_hint))
         {
             memcpy(service, ptr->ai_addr, ptr->ai_addrlen);
             *addrlen = (socklen_t)ptr->ai_addrlen;
             break;
         }
     }
+
+	if (!*addrlen)
+	{
+		for (ptr = result; ptr != NULL; ptr = ptr->ai_next)
+		{
+            if (ptr->ai_family == AF_INET6 && (!addrlen_hint || ptr->ai_addrlen == addrlen_hint))
+			{
+				memcpy(service, ptr->ai_addr, ptr->ai_addrlen);
+				*addrlen = (socklen_t)ptr->ai_addrlen;
+				break;
+			}
+		}
+	}
 
     freeaddrinfo(result);
 
@@ -892,6 +905,7 @@ RTMP_Connect(RTMP *r, RTMPPacket *cp)
 #endif
     struct sockaddr_storage service;
     socklen_t addrlen = 0;
+    socklen_t addrlen_hint = 0;
     if (!r->Link.hostname.av_len)
         return FALSE;
 
@@ -907,16 +921,19 @@ RTMP_Connect(RTMP *r, RTMPPacket *cp)
 
     memset(&service, 0, sizeof(service));
 
+    if (r->m_bindIP.addrLen)
+        addrlen_hint = r->m_bindIP.addrLen;
+
     if (r->Link.socksport)
     {
         /* Connect via SOCKS */
-        if (!add_addr_info(&service, &addrlen, &r->Link.sockshost, r->Link.socksport))
+        if (!add_addr_info(&service, &addrlen, &r->Link.sockshost, r->Link.socksport, addrlen_hint))
             return FALSE;
     }
     else
     {
         /* Connect directly */
-        if (!add_addr_info(&service, &addrlen, &r->Link.hostname, r->Link.port))
+        if (!add_addr_info(&service, &addrlen, &r->Link.hostname, r->Link.port, addrlen_hint))
             return FALSE;
     }
 
@@ -936,7 +953,7 @@ SocksNegotiate(RTMP *r)
     socklen_t addrlen = 0;
     memset(&service, 0, sizeof(service));
 
-    add_addr_info(&service, &addrlen, &r->Link.hostname, r->Link.port);
+    add_addr_info(&service, &addrlen, &r->Link.hostname, r->Link.port, 0);
 
     // not doing IPv6 socks
     if (service.ss_family == AF_INET6)
@@ -3091,7 +3108,10 @@ HandleInvoke(RTMP *r, const char *body, unsigned int nBodySize)
     {
         RTMP_Log(RTMP_LOGERROR, "rtmp server requested close");
         RTMP_Close(r);
-#if defined(CRYPTO) || defined(USE_ONLY_MD5)
+
+        // disabled this for now, if the server sends an rtmp close message librtmp
+        // will enter an infinite loop here until stack is exhausted.
+#if 0 && (defined(CRYPTO) || defined(USE_ONLY_MD5))
         if ((r->Link.protocol & RTMP_FEATURE_WRITE) &&
                 !(r->Link.pFlags & RTMP_PUB_CLEAN) &&
                 (  !(r->Link.pFlags & RTMP_PUB_NAME) ||
@@ -4231,6 +4251,11 @@ RTMP_Close(RTMP *r)
         r->Link.tcUrl.av_val = NULL;
         r->Link.lFlags ^= RTMP_LF_FTCU;
     }
+
+    memset (&r->m_bindIP, 0, sizeof(r->m_bindIP));
+    r->m_bCustomSend = 0;
+    r->m_customSendFunc = NULL;
+    r->m_customSendParam = NULL;
 
 #if defined(CRYPTO) || defined(USE_ONLY_MD5)
     if (!(r->Link.protocol & RTMP_FEATURE_WRITE) || (r->Link.pFlags & RTMP_PUB_CLEAN))

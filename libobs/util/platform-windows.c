@@ -84,9 +84,24 @@ void *os_dlopen(const char *path)
 	if (wpath_slash)
 		SetDllDirectoryW(NULL);
 
-	if (!h_library)
-		blog(LOG_INFO, "LoadLibrary failed for '%s', error: %ld",
-				path, GetLastError());
+	if (!h_library) {
+		DWORD error = GetLastError();
+		char *message = NULL;
+
+		FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM |
+		               FORMAT_MESSAGE_IGNORE_INSERTS |
+		               FORMAT_MESSAGE_ALLOCATE_BUFFER,
+		               NULL, error,
+		               MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US),
+		               (LPSTR)&message, 0, NULL);
+
+		blog(LOG_INFO, "LoadLibrary failed for '%s': %s (%lu)",
+				path, message, error);
+
+		if (message)
+			LocalFree(message);
+	}
+
 
 	return h_library;
 }
@@ -704,28 +719,31 @@ bool get_dll_ver(const wchar_t *lib, struct win_version_info *ver_info)
 	BOOL success;
 	LPVOID data;
 	DWORD size;
+	char utf8_lib[512];
 
 	if (!ver_initialized && !initialize_version_functions())
 		return false;
 	if (!ver_initialize_success)
 		return false;
 
+	os_wcs_to_utf8(lib, 0, utf8_lib, sizeof(utf8_lib));
+
 	size = get_file_version_info_size(lib, NULL);
 	if (!size) {
-		blog(LOG_ERROR, "Failed to get windows version info size");
+		blog(LOG_ERROR, "Failed to get %s version info size", utf8_lib);
 		return false;
 	}
 
 	data = bmalloc(size);
-	if (!get_file_version_info(L"kernel32", 0, size, data)) {
-		blog(LOG_ERROR, "Failed to get windows version info");
+	if (!get_file_version_info(lib, 0, size, data)) {
+		blog(LOG_ERROR, "Failed to get %s version info", utf8_lib);
 		bfree(data);
 		return false;
 	}
 
 	success = ver_query_value(data, L"\\", (LPVOID*)&info, &len);
 	if (!success || !info || !len) {
-		blog(LOG_ERROR, "Failed to get windows version info value");
+		blog(LOG_ERROR, "Failed to get %s version info value", utf8_lib);
 		bfree(data);
 		return false;
 	}
@@ -739,6 +757,18 @@ bool get_dll_ver(const wchar_t *lib, struct win_version_info *ver_info)
 	return true;
 }
 
+bool is_64_bit_windows(void)
+{
+#if defined(_WIN64)
+	return true;
+#elif defined(_WIN32)
+	BOOL b64 = false;
+	return IsWow64Process(GetCurrentProcess(), &b64) && b64;
+#endif
+}
+
+#define WINVER_REG_KEY L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion"
+
 void get_win_ver(struct win_version_info *info)
 {
 	static struct win_version_info ver = {0};
@@ -750,6 +780,26 @@ void get_win_ver(struct win_version_info *info)
 	if (!got_version) {
 		get_dll_ver(L"kernel32", &ver);
 		got_version = true;
+
+		if (ver.major == 10 && ver.revis == 0) {
+			HKEY    key;
+			DWORD   size, win10_revision;
+			LSTATUS status;
+
+			status = RegOpenKeyW(HKEY_LOCAL_MACHINE,
+					WINVER_REG_KEY, &key);
+			if (status != ERROR_SUCCESS)
+				return;
+
+			size = sizeof(win10_revision);
+
+			status = RegQueryValueExW(key, L"UBR", NULL, NULL,
+					(LPBYTE)&win10_revision, &size);
+			if (status == ERROR_SUCCESS)
+				ver.revis = (int)win10_revision;
+
+			RegCloseKey(key);
+		}
 	}
 
 	*info = ver;

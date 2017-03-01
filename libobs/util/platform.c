@@ -16,6 +16,7 @@
 
 #define _FILE_OFFSET_BITS 64
 
+#include <time.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <locale.h>
@@ -164,7 +165,6 @@ size_t os_fread_mbs(FILE *file, char **pstr)
 size_t os_fread_utf8(FILE *file, char **pstr)
 {
 	size_t size = 0;
-	size_t size_read;
 	size_t len = 0;
 
 	*pstr = NULL;
@@ -177,11 +177,13 @@ size_t os_fread_utf8(FILE *file, char **pstr)
 		char *utf8str;
 		off_t offset;
 
+		bom[0] = 0;
+		bom[1] = 0;
+		bom[2] = 0;
+
 		/* remove the ghastly BOM if present */
 		fseek(file, 0, SEEK_SET);
-		size_read = fread(bom, 1, 3, file);
-		if (size_read != 3)
-			return 0;
+		fread(bom, 1, 3, file);
 
 		offset = (astrcmp_n(bom, "\xEF\xBB\xBF", 3) == 0) ? 3 : 0;
 
@@ -655,4 +657,124 @@ const char *os_get_path_extension(const char *path)
 		return NULL;
 
 	return path + pos;
+}
+
+static inline bool valid_string(const char *str)
+{
+	while (str && *str) {
+		if (*(str++) != ' ')
+			return true;
+	}
+
+	return false;
+}
+
+static void replace_text(struct dstr *str, size_t pos, size_t len,
+		const char *new_text)
+{
+	struct dstr front = {0};
+	struct dstr back = {0};
+
+	dstr_left(&front, str, pos);
+	dstr_right(&back, str, pos + len);
+	dstr_copy_dstr(str, &front);
+	dstr_cat(str, new_text);
+	dstr_cat_dstr(str, &back);
+	dstr_free(&front);
+	dstr_free(&back);
+}
+
+static void erase_ch(struct dstr *str, size_t pos)
+{
+	struct dstr new_str = {0};
+	dstr_left(&new_str, str, pos);
+	dstr_cat(&new_str, str->array + pos + 1);
+	dstr_free(str);
+	*str = new_str;
+}
+
+char *os_generate_formatted_filename(const char *extension, bool space,
+		const char *format)
+{
+	time_t now = time(0);
+	struct tm *cur_time;
+	cur_time = localtime(&now);
+
+	const size_t spec_count = 23;
+	static const char *spec[][2] = {
+		{"%CCYY", "%Y"},
+		{"%YY",   "%y"},
+		{"%MM",   "%m"},
+		{"%DD",   "%d"},
+		{"%hh",   "%H"},
+		{"%mm",   "%M"},
+		{"%ss",   "%S"},
+		{"%%",    "%%"},
+
+		{"%a",    ""},
+		{"%A",    ""},
+		{"%b",    ""},
+		{"%B",    ""},
+		{"%d",    ""},
+		{"%H",    ""},
+		{"%I",    ""},
+		{"%m",    ""},
+		{"%M",    ""},
+		{"%p",    ""},
+		{"%S",    ""},
+		{"%y",    ""},
+		{"%Y",    ""},
+		{"%z",    ""},
+		{"%Z",    ""},
+	};
+
+	char convert[128] = {0};
+	struct dstr sf;
+	struct dstr c = {0};
+	size_t pos = 0;
+
+	dstr_init_copy(&sf, format);
+
+	while (pos < sf.len) {
+		for (size_t i = 0; i < spec_count && !convert[0]; i++) {
+			size_t len = strlen(spec[i][0]);
+
+			const char *cmp = sf.array + pos;
+
+			if (astrcmp_n(cmp, spec[i][0], len) == 0) {
+				if (strlen(spec[i][1]))
+					strftime(convert, sizeof(convert),
+							spec[i][1], cur_time);
+				else
+					strftime(convert, sizeof(convert),
+							spec[i][0], cur_time);
+
+
+				dstr_copy(&c, convert);
+				if (c.len && valid_string(c.array))
+					replace_text(&sf, pos, len, convert);
+			}
+		}
+
+		if (convert[0]) {
+			pos += strlen(convert);
+			convert[0] = 0;
+		} else if (!convert[0] && sf.array[pos] == '%') {
+			erase_ch(&sf, pos);
+		} else {
+			pos++;
+		}
+	}
+
+	if (!space)
+		dstr_replace(&sf, " ", "_");
+
+	dstr_cat_ch(&sf, '.');
+	dstr_cat(&sf, extension);
+	dstr_free(&c);
+
+	if (sf.len > 255)
+		dstr_mid(&sf, &sf, 0, 255);
+
+	return sf.array;
 }

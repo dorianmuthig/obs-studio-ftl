@@ -551,7 +551,7 @@ static inline struct list_data *get_list_fmt_data(struct obs_property *p,
 		enum obs_combo_format format)
 {
 	struct list_data *data = get_list_data(p);
-	return (data->format == format) ? data : NULL;
+	return (data && data->format == format) ? data : NULL;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -724,6 +724,30 @@ enum obs_combo_format obs_property_list_format(obs_property_t *p)
 {
 	struct list_data *data = get_list_data(p);
 	return data ? data->format : OBS_COMBO_FORMAT_INVALID;
+}
+
+void obs_property_int_set_limits(obs_property_t *p,
+		int min, int max, int step)
+{
+	struct int_data *data = get_type_data(p, OBS_PROPERTY_INT);
+	if (!data)
+		return;
+
+	data->min = min;
+	data->max = max;
+	data->step = step;
+}
+
+void obs_property_float_set_limits(obs_property_t *p,
+		double min, double max, double step)
+{
+	struct float_data *data = get_type_data(p, OBS_PROPERTY_INT);
+	if (!data)
+		return;
+
+	data->min = min;
+	data->max = max;
+	data->step = step;
 }
 
 void obs_property_list_clear(obs_property_t *p)

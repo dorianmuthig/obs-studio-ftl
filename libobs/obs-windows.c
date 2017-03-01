@@ -157,18 +157,20 @@ static void log_processor_cores(void)
 
 static void log_available_memory(void)
 {
-	MEMORYSTATUS ms;
-	GlobalMemoryStatus(&ms);
+	MEMORYSTATUSEX ms;
+	ms.dwLength = sizeof(ms);
+
+	GlobalMemoryStatusEx(&ms);
 
 #ifdef _WIN64
 	const char *note = "";
 #else
-	const char *note = " (NOTE: 2 or 4 gigs max is normal for 32bit programs)";
+	const char *note = " (NOTE: 32bit programs cannot use more than 3gb)";
 #endif
 
 	blog(LOG_INFO, "Physical Memory: %luMB Total, %luMB Free%s",
-			(DWORD)(ms.dwTotalPhys / 1048576),
-			(DWORD)(ms.dwAvailPhys / 1048576),
+			(DWORD)(ms.ullTotalPhys / 1048576),
+			(DWORD)(ms.ullAvailPhys / 1048576),
 			note);
 }
 
@@ -177,8 +179,12 @@ static void log_windows_version(void)
 	struct win_version_info ver;
 	get_win_ver(&ver);
 
-	blog(LOG_INFO, "Windows Version: %d.%d Build %d (revision: %d)",
-			ver.major, ver.minor, ver.build, ver.revis);
+	bool b64 = is_64_bit_windows();
+	const char *windows_bitness = b64 ? "64" : "32";
+
+	blog(LOG_INFO, "Windows Version: %d.%d Build %d (revision: %d; %s-bit)",
+			ver.major, ver.minor, ver.build, ver.revis,
+			windows_bitness);
 }
 
 static void log_admin_status(void)

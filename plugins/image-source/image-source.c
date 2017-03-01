@@ -151,7 +151,6 @@ static void image_source_render(void *data, gs_effect_t *effect)
 	if (!context->image.texture)
 		return;
 
-	gs_reset_blend_state();
 	gs_effect_set_texture(gs_effect_get_param_by_name(effect, "image"),
 			context->image.texture);
 	gs_draw_sprite(context->image.texture, 0,
@@ -207,7 +206,7 @@ static void image_source_tick(void *data, float seconds)
 		time_t t = get_modified_timestamp(context->file);
 		context->update_time_elapsed = 0.0f;
 
-		if (context->file_timestamp < t) {
+		if (context->file_timestamp != t) {
 			image_source_load(context);
 		}
 	}
@@ -271,10 +270,12 @@ OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("image-source", "en-US")
 
 extern struct obs_source_info slideshow_info;
+extern struct obs_source_info color_source_info;
 
 bool obs_module_load(void)
 {
 	obs_register_source(&image_source_info);
+	obs_register_source(&color_source_info);
 	obs_register_source(&slideshow_info);
 	return true;
 }

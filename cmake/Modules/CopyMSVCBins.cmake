@@ -8,7 +8,7 @@ if(COPIED_DEPENDENCIES)
 	return()
 endif()
 
-option(COPY_DEPENDENCIES "Automaticaly try copying all dependencies" OFF)
+option(COPY_DEPENDENCIES "Automaticaly try copying all dependencies" ON)
 if(NOT COPY_DEPENDENCIES)
 	return()
 endif()
@@ -18,12 +18,6 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 else()
 	set(_bin_suffix 32)
 endif()
-
-find_package(Libavcodec QUIET)
-find_package(Libx264 QUIET)
-find_package(Libfdk QUIET)
-find_package(ssl QUIET)
-find_package(Qt5Core QUIET)
 
 file(GLOB FFMPEG_BIN_FILES
 	"${FFMPEG_avcodec_INCLUDE_DIR}/../bin/avcodec-*.dll"

@@ -115,6 +115,19 @@ enum obs_source_type {
  */
 #define OBS_SOURCE_DO_NOT_DUPLICATE (1<<7)
 
+/**
+ * Source is deprecated and should not be used
+ */
+#define OBS_SOURCE_DEPRECATED (1<<8)
+
+/**
+ * Source cannot have its audio monitored
+ *
+ * Specifies that this source may cause a feedback loop if audio is monitored.
+ * This is used primarily with desktop audio capture sources.
+ */
+#define OBS_SOURCE_DO_NOT_MONITOR (1<<9)
+
 /** @} */
 
 typedef void (*obs_source_enum_proc_t)(obs_source_t *parent,
@@ -395,6 +408,21 @@ struct obs_source_info {
 	bool (*audio_render)(void *data, uint64_t *ts_out,
 			struct obs_source_audio_mix *audio_output,
 			uint32_t mixers, size_t channels, size_t sample_rate);
+
+	/**
+	 * Called to enumerate all active and inactive sources being used
+	 * within this source.  If this callback isn't implemented,
+	 * enum_active_sources will be called instead.
+	 *
+	 * This is typically used if a source can have inactive child sources.
+	 *
+	 * @param  data           Filter data
+	 * @param  enum_callback  Enumeration callback
+	 * @param  param          User data to pass to callback
+	 */
+	void (*enum_all_sources)(void *data,
+			obs_source_enum_proc_t enum_callback,
+			void *param);
 };
 
 EXPORT void obs_register_source_s(const struct obs_source_info *info,
