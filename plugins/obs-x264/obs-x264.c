@@ -100,8 +100,8 @@ static void obs_x264_defaults(obs_data_t *settings)
 	obs_data_set_default_string(settings, "rate_control","CBR");
 
 	obs_data_set_default_string(settings, "preset",      "veryfast");
-	obs_data_set_default_string(settings, "profile",     "");
-	obs_data_set_default_string(settings, "tune",        "");
+	obs_data_set_default_string(settings, "profile",     "high");
+	obs_data_set_default_string(settings, "tune",        "zerolatency");
 	obs_data_set_default_string(settings, "x264opts",    "");
 }
 
