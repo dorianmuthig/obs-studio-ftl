@@ -20,6 +20,7 @@
 #include <wchar.h>
 #include <chrono>
 #include <ratio>
+#include <string>
 #include <sstream>
 #include <mutex>
 #include <util/bmem.h>
@@ -51,6 +52,8 @@
 #include <signal.h>
 #endif
 
+#include <iostream>
+
 using namespace std;
 
 static log_handler_t def_log_handler;
@@ -63,6 +66,9 @@ static bool log_verbose = false;
 static bool unfiltered_log = false;
 bool opt_start_streaming = false;
 bool opt_start_recording = false;
+bool opt_studio_mode = false;
+bool opt_start_replaybuffer = false;
+bool opt_minimize_tray = false;
 string opt_starting_collection;
 string opt_starting_profile;
 string opt_starting_scene;
@@ -316,8 +322,22 @@ static void do_log(int log_level, const char *msg, va_list args, void *param)
 	vsnprintf(str, 4095, msg, args);
 
 #ifdef _WIN32
-	OutputDebugStringA(str);
-	OutputDebugStringA("\n");
+	if (IsDebuggerPresent()) {
+		int wNum = MultiByteToWideChar(CP_UTF8, 0, str, -1, NULL, 0);
+		if (wNum > 1) {
+			static wstring wide_buf;
+			static mutex wide_mutex;
+
+			lock_guard<mutex> lock(wide_mutex);
+			wide_buf.reserve(wNum + 1);
+			wide_buf.resize(wNum - 1);
+			MultiByteToWideChar(CP_UTF8, 0, str, -1, &wide_buf[0],
+					wNum);
+			wide_buf.push_back('\n');
+
+			OutputDebugStringW(wide_buf.c_str());
+		}
+	}
 #else
 	def_log_handler(log_level, msg, args2, nullptr);
 #endif
@@ -343,6 +363,8 @@ bool OBSApp::InitGlobalConfigDefaults()
 	config_set_default_uint(globalConfig, "General", "MaxLogs", 10);
 	config_set_default_string(globalConfig, "General", "ProcessPriority",
 			"Normal");
+	config_set_default_bool(globalConfig, "General", "EnableAutoUpdates",
+			true);
 
 #if _WIN32
 	config_set_default_string(globalConfig, "Video", "Renderer",
@@ -377,6 +399,8 @@ bool OBSApp::InitGlobalConfigDefaults()
 			"SysTrayEnabled", true);
 	config_set_default_bool(globalConfig, "BasicWindow",
 			"SysTrayWhenStarted", false);
+	config_set_default_bool(globalConfig, "BasicWindow",
+			"SaveProjectors", false);
 	config_set_default_bool(globalConfig, "BasicWindow",
 			"ShowTransitions", true);
 	config_set_default_bool(globalConfig, "BasicWindow",
@@ -426,7 +450,13 @@ static bool MakeUserDirs()
 		return false;
 	if (!do_mkdir(path))
 		return false;
+
+	if (GetConfigPath(path, sizeof(path), "obs-studio/updates") <= 0)
+		return false;
+	if (!do_mkdir(path))
+		return false;
 #endif
+
 	if (GetConfigPath(path, sizeof(path), "obs-studio/plugin_config") <= 0)
 		return false;
 	if (!do_mkdir(path))
@@ -1242,20 +1272,6 @@ static int run_program(fstream &logFile, int argc, char *argv[])
 	profiler_start();
 	profile_register_root(run_program_init, 0);
 
-	auto PrintInitProfile = [&]()
-	{
-		auto snap = GetSnapshot();
-
-		profiler_snapshot_filter_roots(snap.get(), [](void *data,
-					const char *name, bool *remove)
-		{
-			*remove = (*static_cast<const char**>(data)) != name;
-			return true;
-		}, static_cast<void*>(&run_program_init));
-
-		profiler_print(snap.get());
-	};
-
 	ScopeProfiler prof{run_program_init};
 
 	QCoreApplication::addLibraryPath(".");
@@ -1749,6 +1765,9 @@ int main(int argc, char *argv[])
 		} else if (arg_is(argv[i], "--startrecording", nullptr)) {
 			opt_start_recording = true;
 
+		} else if (arg_is(argv[i], "--startreplaybuffer", nullptr)) {
+			opt_start_replaybuffer = true;
+
 		} else if (arg_is(argv[i], "--collection", nullptr)) {
 			if (++i < argc) opt_starting_collection = argv[i];
 
@@ -1757,6 +1776,42 @@ int main(int argc, char *argv[])
 
 		} else if (arg_is(argv[i], "--scene", nullptr)) {
 			if (++i < argc) opt_starting_scene = argv[i];
+
+		} else if (arg_is(argv[i], "--minimize-to-tray", nullptr)) {
+			opt_minimize_tray = true;
+
+		} else if (arg_is(argv[i], "--studio-mode", nullptr)) {
+			opt_studio_mode = true;
+
+		} else if (arg_is(argv[i], "--help", "-h")) {
+			std::cout <<
+			"--help, -h: Get list of available commands.\n\n" << 
+			"--startstreaming: Automatically start streaming.\n" <<
+			"--startrecording: Automatically start recording.\n" <<
+			"--startreplaybuffer: Start replay buffer.\n\n" <<
+			"--collection <string>: Use specific scene collection."
+				<< "\n" <<
+			"--profile <string>: Use specific profile.\n" <<
+			"--scene <string>: Start with specific scene.\n\n" <<
+			"--studio-mode: Enable studio mode.\n" <<
+			"--minimize-to-tray: Minimize to system tray.\n" <<
+			"--portable, -p: Use portable mode.\n\n" <<
+			"--verbose: Make log more verbose.\n" <<
+			"--unfiltered_log: Make log unfiltered.\n\n" <<
+			"--version, -V: Get current version.\n";
+
+			exit(0);
+
+		} else if (arg_is(argv[i], "--version", "-V")) {
+			std::cout << "OBS Studio - " << 
+				App()->GetVersionString() << "\n";
+			exit(0);
+
+		} else {
+			std::cout << 
+				"Invalid arguments. Use --help or -h to get " << 
+				"a list of available command line arguments.\n";
+			exit(0);
 		}
 	}
 

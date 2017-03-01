@@ -27,10 +27,12 @@ set(obs-filters_SOURCES
 	scroll-filter.c
 	chroma-key-filter.c
 	color-key-filter.c
+	color-grade-filter.c
 	sharpness-filter.c
 	gain-filter.c
 	noise-gate-filter.c
-	mask-filter.c)
+	mask-filter.c
+	compressor-filter.c)
 
 add_library(obs-filters MODULE
 	${obs-filters_SOURCES}

@@ -63,6 +63,7 @@ endif()
 set(obs-outputs_HEADERS
 	obs-output-ver.h
 	rtmp-helpers.h
+	rtmp-stream.h
 	net-if.h
 	flv-mux.h
 	flv-output.h
@@ -70,6 +71,7 @@ set(obs-outputs_HEADERS
 set(obs-outputs_SOURCES
 	obs-outputs.c
 	rtmp-stream.c
+	rtmp-windows.c
 	ftl-stream.c
 	flv-output.c
 	flv-mux.c
