@@ -2,12 +2,12 @@ REM @Echo Off
 SET build_config=Release
 SET obs_version=18.0.0-ftl.9
 SET coredeps=C:\beam\tachyon_deps
-SET QTDIR64=C:\Qt\5.6\msvc2015_64
-SET QTDIR32=C:\Qt\5.6\msvc2015
+SET QTDIR64=C:\Qt\5.8\msvc2015_64
+SET QTDIR32=C:\Qt\5.8\msvc2015
 SET build_browser=OFF
 SET cef_root_64=C:\beam\cef_binary_3.2883.1548.gd6fc4a4_windows64
 SET cef_root_32=C:\beam\cef_binary_3.2883.1548.gd6fc4a4_windows32
-SET browser=C:\beam\obs-browser-1.23
+SET browser=C:\beam\obs-browser-1.29
 SET PATH=%PATH%;C:\Program Files (x86)\MSBuild\14.0\Bin;C:\Program Files (x86)\CMake\bin
 SET startingPath=%cd%
 SET DepsPath32=%coredeps%\win32
