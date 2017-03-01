@@ -869,7 +869,7 @@ bool OBSBasic::InitService()
 	if (LoadService())
 		return true;
 
-	service = obs_service_create("rtmp_common", "default_service", nullptr,
+	service = obs_service_create("ftl_beam", "default_service", nullptr,
 			nullptr);
 	if (!service)
 		return false;
