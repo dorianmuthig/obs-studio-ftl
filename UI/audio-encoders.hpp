@@ -1,7 +1,7 @@
 #include <obs.hpp>
-
+#include <string>
 #include <map>
-
-const std::map<int, const char*> &GetAACEncoderBitrateMap();
-const char *GetAACEncoderForBitrate(int bitrate);
-int FindClosestAvailableAACBitrate(int bitrate);
+using namespace std;
+const std::map<int, const char*> &GetAACEncoderBitrateMap(string codecName);
+const char *GetAACEncoderForBitrate(int bitrate, string codecName);
+int FindClosestAvailableAACBitrate(int bitrate, string codecName);

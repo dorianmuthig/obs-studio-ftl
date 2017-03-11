@@ -371,6 +371,7 @@ static int get_virtual_key(obs_key_t key)
 	case OBS_KEY_BACKSLASH: return VK_OEM_5;
 	case OBS_KEY_BRACKETRIGHT: return VK_OEM_6;
 	case OBS_KEY_ASCIITILDE: return VK_OEM_3;
+	case OBS_KEY_LESS: return VK_OEM_102;
 
 	case OBS_KEY_KANJI: return VK_KANJI;
 	case OBS_KEY_TOUROKU: return VK_OEM_FJ_TOUROKU;

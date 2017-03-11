@@ -38,6 +38,7 @@ gs_stage_surface::gs_stage_surface(gs_device_t *device, uint32_t width,
 	td.Usage            = D3D11_USAGE_STAGING;
 
 	hr = device->device->CreateTexture2D(&td, NULL, texture.Assign());
+
 	if (FAILED(hr))
 		throw HRError("Failed to create staging surface", hr);
 }

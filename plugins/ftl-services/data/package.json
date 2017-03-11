@@ -1,0 +1,10 @@
+{
+	"url": "https://raw.githubusercontent.com/WatchBeam/obs-studio-ftl/ftl/plugins/ftl-services/data/",
+	"version": 37,
+	"files": [
+		{
+			"name": "services.json",
+			"version": 37
+		}
+	]
+}

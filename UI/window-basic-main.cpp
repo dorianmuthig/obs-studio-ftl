@@ -845,7 +845,7 @@ bool OBSBasic::LoadService()
 	obs_data_t *data = obs_data_create_from_json_file_safe(serviceJsonPath,
 			"bak");
 
-	obs_data_set_default_string(data, "type", "rtmp_common");
+	obs_data_set_default_string(data, "type", "ftl_beam");
 	type = obs_data_get_string(data, "type");
 
 	obs_data_t *settings = obs_data_get_obj(data, "settings");
@@ -869,7 +869,7 @@ bool OBSBasic::InitService()
 	if (LoadService())
 		return true;
 
-	service = obs_service_create("rtmp_common", "default_service", nullptr,
+	service = obs_service_create("ftl_beam", "default_service", nullptr,
 			nullptr);
 	if (!service)
 		return false;
@@ -1040,7 +1040,7 @@ bool OBSBasic::InitBasicConfigDefaults()
 	config_set_default_string(basicConfig, "Audio", "MonitoringDeviceName",
 			Str("Basic.Settings.Advanced.Audio.MonitoringDevice"
 				".Default"));
-	config_set_default_uint  (basicConfig, "Audio", "SampleRate", 44100);
+	config_set_default_uint  (basicConfig, "Audio", "SampleRate", 48000);
 	config_set_default_string(basicConfig, "Audio", "ChannelSetup",
 			"Stereo");
 
@@ -1258,11 +1258,13 @@ void OBSBasic::OBSInit()
 
 	blog(LOG_INFO, STARTUP_SEPARATOR);
 
+	if (!InitService())
+		throw "Failed to initialize service";
+
 	ResetOutputs();
 	CreateHotkeys();
 
-	if (!InitService())
-		throw "Failed to initialize service";
+	
 
 	InitPrimitives();
 
@@ -5235,3 +5237,5 @@ bool OBSBasic::sysTrayMinimizeToTray()
 	return config_get_bool(GetGlobalConfig(),
 			"BasicWindow", "SysTrayMinimizeToTray");
 }
+
+string OBSBasic::codecName;

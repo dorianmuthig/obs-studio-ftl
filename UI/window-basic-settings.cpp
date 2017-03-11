@@ -203,7 +203,7 @@ void OBSBasicSettings::ToggleDisableAero(bool checked)
 
 static void PopulateAACBitrates(initializer_list<QComboBox*> boxes)
 {
-	auto &bitrateMap = GetAACEncoderBitrateMap();
+	auto &bitrateMap = GetAACEncoderBitrateMap(OBSBasic::codecName);
 	if (bitrateMap.empty())
 		return;
 
@@ -1334,7 +1334,7 @@ void OBSBasicSettings::LoadSimpleOutputSettings()
 	curNVENCPreset = nvPreset;
 	curAMDPreset = amdPreset;
 
-	audioBitrate = FindClosestAvailableAACBitrate(audioBitrate);
+	audioBitrate = FindClosestAvailableAACBitrate(audioBitrate, OBSBasic::codecName);
 
 	ui->simpleOutputPath->setText(path);
 	ui->simpleNoSpace->setChecked(noSpace);
@@ -1650,12 +1650,12 @@ void OBSBasicSettings::LoadAdvOutputAudioSettings()
 	const char *name6 = config_get_string(main->Config(), "AdvOut",
 			"Track6Name");
 
-	track1Bitrate = FindClosestAvailableAACBitrate(track1Bitrate);
-	track2Bitrate = FindClosestAvailableAACBitrate(track2Bitrate);
-	track3Bitrate = FindClosestAvailableAACBitrate(track3Bitrate);
-	track4Bitrate = FindClosestAvailableAACBitrate(track4Bitrate);
-	track5Bitrate = FindClosestAvailableAACBitrate(track5Bitrate);
-	track6Bitrate = FindClosestAvailableAACBitrate(track6Bitrate);
+	track1Bitrate = FindClosestAvailableAACBitrate(track1Bitrate, OBSBasic::codecName);
+	track2Bitrate = FindClosestAvailableAACBitrate(track2Bitrate, OBSBasic::codecName);
+	track3Bitrate = FindClosestAvailableAACBitrate(track3Bitrate, OBSBasic::codecName);
+	track4Bitrate = FindClosestAvailableAACBitrate(track4Bitrate, OBSBasic::codecName);
+	track5Bitrate = FindClosestAvailableAACBitrate(track5Bitrate, OBSBasic::codecName);
+	track6Bitrate = FindClosestAvailableAACBitrate(track6Bitrate, OBSBasic::codecName);
 
 	SetComboByName(ui->advOutTrack1Bitrate,
 			std::to_string(track1Bitrate).c_str());

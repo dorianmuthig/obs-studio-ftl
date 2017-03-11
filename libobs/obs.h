@@ -17,6 +17,8 @@
 
 #pragma once
 
+//#define AUDIO_USE_OPUS
+
 #include "util/c99defs.h"
 #include "util/bmem.h"
 #include "util/profiler.h"

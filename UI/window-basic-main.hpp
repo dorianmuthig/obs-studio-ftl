@@ -489,6 +489,7 @@ public:
 	void UpdateTitleBar();
 	void UpdateSceneSelection(OBSSource source);
 
+	static std::string codecName;
 	void SystemTrayInit();
 	void SystemTray(bool firstStarted);
 

@@ -1,0 +1,32 @@
+
+build(){
+  export FFmpegPath=/usr/local/ffmpeg-tachyon/include
+  export QTDIR=/usr/local/Cellar/qt5/5.5.0_1/
+  pushd .
+  cd ..
+  mkdir build
+  cd build
+  cmake -DOBS_VERSION_OVERRIDE='17.0.0-ftl.28' ..
+  make
+  sudo python2.7 ../build_script/build_app.py
+  sudo chown -R :staff OBS.app
+  popd
+}
+
+archive(){
+   pushd .
+   cd ../build
+   echo "@@ Archiving build to DMG..."
+   hdiutil create -fs HFS+ -megabytes 80 -volname 'OBS-FTL Install' OBS-FTL.dmg
+   hdiutil mount OBS-FTL.dmg
+   cp -r ./OBS.app "/Volumes/OBS-FTL Install/OBS-FTL.app"
+   hdiutil unmount "/Volumes/OBS-FTL Install"
+   mkdir dmg
+   cp OBS-FTL.dmg dmg/OBS_Studio-FTL.17.0.0.ftl.28.dmg
+   popd
+}
+
+build
+archive
+
+
