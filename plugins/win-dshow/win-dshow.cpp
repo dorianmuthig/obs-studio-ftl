@@ -508,31 +508,32 @@ void DShowInput::OnEncodedAudioData(enum AVCodecID id,
 			blog(LOG_WARNING, "Could not initialize audio decoder");
 			return;
 		}
+	}
 
-		if (videoConfig.name.find(L"C875") != std::string::npos ||
-		    videoConfig.name.find(L"C835") != std::string::npos) {
-			audio_decoder->fix_braindead_lgp_audio_packet_stupidity
-				= true;
-			blog(LOG_INFO, "Oh great, an LGP was detected.  "
-					"How wonderful.  I'm just ecstatic.");
+	do {
+		bool got_output;
+		int len = ffmpeg_decode_audio(audio_decoder, data, size,
+				&audio, &got_output);
+		if (len < 0) {
+			blog(LOG_WARNING, "Error decoding audio");
+			return;
 		}
-	}
 
-	bool got_output;
-	int len = ffmpeg_decode_audio(audio_decoder, data, size, &ts,
-			&audio, &got_output);
-	if (len < 0) {
-		blog(LOG_WARNING, "Error decoding audio");
-		return;
-	}
-
-	if (got_output) {
-		audio.timestamp = (uint64_t)ts * 100;
+		if (got_output) {
+			audio.timestamp = (uint64_t)ts * 100;
 #if LOG_ENCODED_AUDIO_TS
-		blog(LOG_DEBUG, "audio ts: %llu", audio.timestamp);
+			blog(LOG_DEBUG, "audio ts: %llu", audio.timestamp);
 #endif
-		obs_source_output_audio(source, &audio);
-	}
+			obs_source_output_audio(source, &audio);
+		} else {
+			break;
+		}
+
+		ts += int64_t(audio_decoder->frame->nb_samples) * 10000000LL /
+			int64_t(audio_decoder->frame->sample_rate);
+		size -= (size_t)len;
+		data += len;
+	} while (size > 0);
 }
 
 void DShowInput::OnAudioData(const AudioConfig &config,

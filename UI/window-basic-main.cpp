@@ -587,6 +587,18 @@ static bool LogSceneItem(obs_scene_t*, obs_sceneitem_t *item, void*)
 
 	blog(LOG_INFO, "    - source: '%s' (%s)", name, id);
 
+	obs_monitoring_type monitoring_type =
+		obs_source_get_monitoring_type(source);
+
+	if (monitoring_type != OBS_MONITORING_TYPE_NONE) {
+		const char *type =
+			(monitoring_type == OBS_MONITORING_TYPE_MONITOR_ONLY)
+			? "monitor only"
+			: "monitor and output";
+
+		blog(LOG_INFO, "        - monitoring: %s", type);
+	}
+
 	obs_source_enum_filters(source, LogFilter, (void*)(intptr_t)2);
 	return true;
 }
@@ -1244,6 +1256,19 @@ void OBSBasic::OBSInit()
 		if (ret != OBS_VIDEO_SUCCESS)
 			throw UNKNOWN_ERROR;
 	}
+
+	/* load audio monitoring */
+#if defined(_WIN32) || defined(__APPLE__)
+	const char *device_name = config_get_string(basicConfig, "Audio",
+			"MonitoringDeviceName");
+	const char *device_id = config_get_string(basicConfig, "Audio",
+			"MonitoringDeviceId");
+
+	obs_set_audio_monitoring_device(device_name, device_id);
+
+	blog(LOG_INFO, "Audio monitoring device:\n\tname: %s\n\tid: %s",
+			device_name, device_id);
+#endif
 
 	InitOBSCallbacks();
 	InitHotkeys();
