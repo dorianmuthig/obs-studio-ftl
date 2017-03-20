@@ -176,29 +176,61 @@ static void ftl_beam_apply_settings(void *data,
 static void apply_video_encoder_settings(obs_data_t *settings,
 	json_t *recommended)
 {
+  // Note! These will be applied if the user checks "enforce provider settings" for the stream setup.
+  // If the value is set into settings, it will override the UI.
+
+  // Set the keyframe interval
 	json_t *item = json_object_get(recommended, "keyint");
 	if (item && json_is_integer(item)) {
 		int keyint = (int)json_integer_value(item);
 		obs_data_set_int(settings, "keyint_sec", keyint);
 	}
 
+  // Force CBR
 	obs_data_set_string(settings, "rate_control", "CBR");
 
+  // Force the profile
 	item = json_object_get(recommended, "profile");
 	if (item && json_is_string(item)) {
 		const char *profile = json_string_value(item);
 		obs_data_set_string(settings, "profile", profile);
 	}
 
+  // Force the preset
+  item = json_object_get(recommended, "preset");
+  if (item && json_is_string(item)) {
+    const char *preset = json_string_value(item);
+    obs_data_set_string(settings, "preset", preset);
+  }
+
+  // Force the tune
+  item = json_object_get(recommended, "tune");
+  if (item && json_is_string(item)) {
+    const char *tune = json_string_value(item);
+    obs_data_set_string(settings, "tune", tune);
+  }
+
+  // Clamp the bitrate
 	item = json_object_get(recommended, "max video bitrate");
 	if (item && json_is_integer(item)) {
 		int max_bitrate = (int)json_integer_value(item);
 		if (obs_data_get_int(settings, "bitrate") > max_bitrate) {
 			obs_data_set_int(settings, "bitrate", max_bitrate);
-			obs_data_set_int(settings, "buffer_size", max_bitrate);
 		}
 	}
 
+  // Force the buffer size to be the bitrate
+  int bitrate = obs_data_get_int(settings, "bitrate");
+  obs_data_set_int(settings, "buffer_size", bitrate);
+  obs_data_set_bool(settings, "use_bufsize", true);  
+
+  //
+  // NVENC Defaults
+  // Force b frames off
+  obs_data_set_int(settings, "bf", 0);
+
+
+  // Add any extra opts
 	item = json_object_get(recommended, "x264opts");
 	if (item && json_is_string(item)) {
 		const char *x264_settings = json_string_value(item);
