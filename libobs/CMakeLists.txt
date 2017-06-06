@@ -1,3 +1,7 @@
+#set(CMAKE_OSX_SYSROOT "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/")
+set(CMAKE_OSX_SYSROOT "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk")
+set(CMAKE_OSX_DEPLOYMENT_TARGET "10.12")
+
 project(libobs)
 
 find_package(Threads REQUIRED)

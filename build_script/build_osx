@@ -1,15 +1,26 @@
 
-build(){
-  export FFmpegPath=/usr/local/ffmpeg-tachyon/include
-  export QTDIR=/usr/local/Cellar/qt5/5.5.0_1/
+cmakeprepare(){
   pushd .
+  # export MACOSX_DEPLOYMENT_TARGET=10.9
   cd ..
+  rm -rf ./build
   mkdir build
   cd build
-  cmake -DOBS_VERSION_OVERRIDE='17.0.0-ftl.28' ..
+  export FFmpegPath=/usr/local/Cellar/ffmpeg/3.3.2/include
+  export QTDIR=/usr/local/Cellar/qt/5.9.0/
+  cmake -DOBS_VERSION_OVERRIDE='19.0.2-ftl_0.9.4' -DCMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/ -DCEF_ROOT_DIR=~/Library/Developer/Chromium/cef_binary_3.3071.1637.gcb6cf75_macosx64 -DBUILD_BROWSER=no ..
+  #cmake -D CMAKE_CXX_FLAGS="-std=c++11 -stdlib=libc++" -D CMAKE_EXE_LINKER_FLAGS="-std=c++11 -stdlib=libc++" -DOBS_VERSION_OVERRIDE='19.0.2-ftl_0.9.4' ..
+  #cmake -DOBS_VERSION_OVERRIDE='19.0.2-ftl_0.9.4' -DCMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/ ..
+  popd
+}
+
+build(){
+  pushd .
+  #cmake -DOBS_VERSION_OVERRIDE='19.0.2-ftl_0.9.4' ..
   make
-  sudo python2.7 ../build_script/build_app.py
-  sudo chown -R :staff OBS.app
+  make package
+  #sudo python2.7 ../build_script/build_app.py
+  #sudo chown -R :staff OBS.app
   popd
 }
 
@@ -17,16 +28,17 @@ archive(){
    pushd .
    cd ../build
    echo "@@ Archiving build to DMG..."
-   hdiutil create -fs HFS+ -megabytes 80 -volname 'OBS-FTL Install' OBS-FTL.dmg
+   hdiutil create -fs HFS+ -megabytes 140 -volname 'OBS-FTL Install' OBS-FTL.dmg
    hdiutil mount OBS-FTL.dmg
    cp -r ./OBS.app "/Volumes/OBS-FTL Install/OBS-FTL.app"
    hdiutil unmount "/Volumes/OBS-FTL Install"
    mkdir dmg
-   cp OBS-FTL.dmg dmg/OBS_Studio-FTL.17.0.0.ftl.28.dmg
+   cp OBS-FTL.dmg dmg/OBS_Studio-FTL.19.0.2-ftl_0.9.4.dmg
    popd
 }
 
+cmakeprepare
 build
-archive
+#archive
 
 
